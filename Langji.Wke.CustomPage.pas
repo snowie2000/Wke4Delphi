@@ -4,7 +4,7 @@ interface
 {$I delphiver.inc}
 
 uses
-{$IFDEF DELPHI15_UP}
+{$IFDEF DELPHI16_UP}
   System.SysUtils, System.Classes, Vcl.Controls, vcl.graphics, Vcl.Forms,
 {$ELSE}
   SysUtils, Classes, Controls, Graphics, Forms,

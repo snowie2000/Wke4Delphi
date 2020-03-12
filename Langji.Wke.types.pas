@@ -153,11 +153,12 @@ type
   end;
 
  //Add 20180523
-  pwkeMemBuf = packed record
+  wkeMemBuf = packed record
     size:Integer;
     data:Pointer;
     length:Cardinal ;
   end;
+  pwkeMemBuf = ^wkeMemBuf;
 
   wkeHttBodyElementType= (wkeHttBodyElementTypeData,wkeHttBodyElementTypeFile);
 
@@ -495,7 +496,7 @@ type
     function EmptyArray: jsValue; {$IFDEF SupportInline}inline;{$ENDIF}
     function Object_(obj: PjsData): jsValue; {$IFDEF SupportInline}inline;{$ENDIF}
     function Function_(obj: PjsData): jsValue; {$IFDEF SupportInline}inline;{$ENDIF}
-    function GetData(AObject: jsValue): jsData; {$IFDEF SupportInline}inline;{$ENDIF}
+    function GetData(AObject: jsValue): PjsData;
     function Get(AObject: jsValue; const prop: string): jsValue; {$IFDEF SupportInline}inline;{$ENDIF}
     procedure Set_(AObject: jsValue; const prop: string; v: jsValue); {$IFDEF SupportInline}inline;{$ENDIF}
     function GetAt(AObject: jsValue; index: Integer): jsValue; {$IFDEF SupportInline}inline;{$ENDIF}
@@ -1264,7 +1265,7 @@ begin
   Result := jsFunction(Self, obj);
 end;
 
-function JScript.GetData(AObject: jsValue): jsData;
+function JScript.GetData(AObject: jsValue): PjsData;
 begin
   Result := jsGetData(Self, AObject);
 end;

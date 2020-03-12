@@ -9,7 +9,7 @@ uses
   //================================wkeWebView============================
 var
   wkeLibHandle: THandle = 0;
-  wkeLibFileName: string = 'wke.dll';
+  wkeLibFileName: string = 'node.dll';
   wkeInitialize: procedure; cdecl;
   wkeInitializeEx: procedure(settings: PwkeSettings); cdecl;
   wkeConfigure: procedure(settings: PwkeSettings); cdecl;
@@ -17,8 +17,7 @@ var
   wkeUpdate: procedure; cdecl;
   wkeGetVersion: function(): Integer; cdecl;
   wkeGetVersionString: function(): putf8; cdecl;
-  wkeSetFileSystem: procedure(pfn_open: FILE_OPEN; pfn_close: FILE_CLOSE; pfn_size: FILE_SIZE; pfn_read: FILE_READ;
-    pfn_seek: FILE_SEEK); cdecl;
+  wkeSetFileSystem: procedure(pfn_open: FILE_OPEN; pfn_close: FILE_CLOSE; pfn_size: FILE_SIZE; pfn_read: FILE_READ; pfn_seek: FILE_SEEK); cdecl;
   wkeCreateWebView: function(): wkeWebView; cdecl;
   wkeGetWebView: function(name: Pchar): wkeWebView; cdecl;
   wkeDestroyWebView: procedure(webView: wkeWebView); cdecl;
@@ -56,8 +55,7 @@ var
   wkeIsDirty: function(webView: wkeWebView): Boolean; cdecl;
   wkeAddDirtyArea: procedure(webView: wkeWebView; x: Integer; y: Integer; w: Integer; h: Integer); cdecl;
   wkeLayoutIfNeeded: procedure(webView: wkeWebView); cdecl;
-  wkePaint: procedure(webView: wkeWebView; bits: Pointer; bufWid: Integer; bufHei: Integer; xDst: Integer; yDst: Integer;
-    w: Integer; h: Integer; xSrc: Integer; ySrc: Integer; bCopyAlpha: Boolean); cdecl;
+  wkePaint: procedure(webView: wkeWebView; bits: Pointer; bufWid: Integer; bufHei: Integer; xDst: Integer; yDst: Integer; w: Integer; h: Integer; xSrc: Integer; ySrc: Integer; bCopyAlpha: Boolean); cdecl;
   wkePaint2: procedure(webView: wkeWebView; bits: Pointer; pitch: Integer); cdecl;
   wkeRepaintIfNeeded: procedure(webView: wkeWebView); cdecl;
   wkeGetViewDC: function(webView: wkeWebView): HDC; cdecl;
@@ -111,8 +109,7 @@ var
   wkeOnLoadingFinish: procedure(webView: wkeWebView; callback: wkeLoadingFinishCallback; param: Pointer); cdecl;
   wkeOnConsoleMessage: procedure(webView: wkeWebView; callback: wkeConsoleMessageCallback; callbackParam: Pointer); cdecl;  //  ??
 
-  wkeCreateWebWindow: function(AType: wkeWindowType; parent: HWND; x: Integer; y: Integer; width: Integer; height:
-    Integer): wkeWebView; cdecl;
+  wkeCreateWebWindow: function(AType: wkeWindowType; parent: HWND; x: Integer; y: Integer; width: Integer; height: Integer): wkeWebView; cdecl;
   wkeDestroyWebWindow: procedure(webWindow: wkeWebView); cdecl;
   wkeGetWindowHandle: function(webWindow: wkeWebView): HWND; cdecl;
   wkeOnWindowClosing: procedure(webWindow: wkeWebView; callback: wkeWindowClosingCallback; param: Pointer); cdecl;
@@ -152,10 +149,10 @@ var
   /// </summary>
   wkeSetCookie: procedure(webWindow: wkeWebView; const url, cookie: putf8); cdecl;      //minibink 新增
   wkeSetCookieJarPath: procedure(webWindow: wkeWebView; const path: Pwchar_t); cdecl;
+  wkeSetCookieJarFullPath: procedure(webWindow: wkeWebView; const path: Pwchar_t); cdecl;
   wkeWebFrameGetMainFrame: function(webWindow: wkeWebView): Thandle; cdecl;       //minibink 新增  2018.1.17
   wkeIsMainFrame: function(webWindow: wkeWebView; frameId: Thandle): Boolean; cdecl;  //minibink 新增  2018.1.17
-  wkeRunJsByFrame: function(webWindow: wkeWebView; frameId: Thandle; const script: putf8; isInClosure: boolean): jsValue;
-    cdecl;      // minibink 新增  2018.1.17
+  wkeRunJsByFrame: function(webWindow: wkeWebView; frameId: Thandle; const script: putf8; isInClosure: boolean): jsValue; cdecl;      // minibink 新增  2018.1.17
 
  // Add 2018.02.07
   //ITERATOR2(void, wkeVisitAllCookie, void* params, wkeCookieVisitor visitor, "")
@@ -196,6 +193,7 @@ var
   //ITERATOR1(void, wkeNetHookRequest, void *job, "") \
   wkeNetHookRequest: procedure(job: Pointer); cdecl;
   wkeSetNavigationToNewWindowEnable: procedure(webView: wkeWebView; b: boolean); cdecl; //20180707
+  wkeNetSetData: procedure(jobPtr:Pointer; buf: Pointer;len: Integer);cdecl;
 
 
 //================================JScript============================
@@ -237,7 +235,7 @@ var
   jsEmptyArray: function(es: jsExecState): jsValue; cdecl;
   jsObject: function(es: jsExecState; obj: PjsData): jsValue; cdecl;
   jsFunction: function(es: jsExecState; obj: PjsData): jsValue; cdecl;
-  jsGetData: function(es: jsExecState; AObject: jsValue): jsData; cdecl;
+  jsGetData: function(es: jsExecState; AObject: jsValue): PjsData; cdecl;
   jsGet: function(es: jsExecState; AObject: jsValue; prop: PAnsiChar): jsValue; cdecl;
   jsSet: procedure(es: jsExecState; AObject: jsValue; prop: PAnsiChar; v: jsValue); cdecl;
   jsGetAt: function(es: jsExecState; AObject: jsValue; index: Integer): jsValue; cdecl;
@@ -279,10 +277,8 @@ procedure ProcessVcFastCall;
 asm
    {$IFDEF DEBUG}
         MOV     [EBP - 4], ECX
-   {$ELSE}
-        MOV     EBX, ECX
-   {$ENDIF DEBUG}
-end;
+   {$ELSE}        MOV     EBX, ECX
+   {$ENDIF DEBUG}end;
 {$ENDIF UseVcFastCall}
 
 function WkeLoadLibAndInit: boolean;
@@ -293,6 +289,10 @@ begin
     if LoadWkeLibaraly() then
     begin
       wkeInitialize;
+        {$IFDEF MSWINDOWS}
+//      uOld8087CW := Default8087CW;
+      Set8087CW($133F);
+  {$ENDIF}
       result := true;
     end;
   end;
@@ -312,10 +312,10 @@ begin
   SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]);
   result := false;
 
-  wkeLibHandle := GetModuleHandle(PChar( ExtractFileName( wkeLibFileName)));
+  wkeLibHandle := GetModuleHandle(PChar(ExtractFileName(wkeLibFileName)));
   if wkeLibHandle = 0 then
   begin
-    if (wkeLibFilePath <> '') and Fileexists(wkeLibFilepath) then
+    if (wkeLibFilePath <> '') and Fileexists(wkeLibFilePath) then
       wkeLibFileName := wkeLibFilePath;
     if Fileexists(wkeLibFileName) then
       wkeLibHandle := LoadLibrary(PChar(wkeLibFileName));
@@ -437,6 +437,7 @@ begin
   wkeSetWindowTitleW := GetProcAddress(wkeLibHandle, 'wkeSetWindowTitleW');
 
   wkeSetCookieJarPath := GetProcAddress(wkeLibHandle, 'wkeSetCookieJarPath');
+  wkeSetCookieJarFullPath := GetProcAddress(wkeLibHandle, 'wkeSetCookieJarFullPath');
   wkeSetCookie := GetProcAddress(wkeLibHandle, 'wkeSetCookie');
   wkeGetURL := GetProcAddress(wkeLibHandle, 'wkeGetURL');
   wkeWebFrameGetMainFrame := GetProcAddress(wkeLibHandle, 'wkeWebFrameGetMainFrame');
@@ -468,6 +469,7 @@ begin
   wkeGetSource := GetProcAddress(wkeLibHandle, 'wkeGetSource');
   wkeNetHookRequest := GetProcAddress(wkeLibHandle, 'wkeNetHookRequest');
   wkeSetNavigationToNewWindowEnable := GetProcAddress(wkeLibHandle, 'wkeSetNavigationToNewWindowEnable');
+  wkeNetSetData := GetProcAddress(wkeLibHandle, 'wkeNetSetData');
 
   jsBindFunction := GetProcAddress(wkeLibHandle, 'jsBindFunction');
   jsBindGetter := GetProcAddress(wkeLibHandle, 'jsBindGetter');

@@ -4,7 +4,7 @@ interface
 {$I delphiver.inc}
 
 uses
-{$IFDEF DELPHI15_UP}
+{$IFDEF DELPHI16_UP}
   System.SysUtils, System.Classes, Vcl.Controls, vcl.graphics, Vcl.Forms, System.Generics.Collections,
 {$ELSE}
   SysUtils, Classes, Controls, Graphics, forms,
@@ -680,8 +680,8 @@ end;
 procedure TWkeWebBrowser.setWkeCookiePath(const Value: string);
 begin
   FwkeCookiePath := Value;
-  if DirectoryExists(FwkeCookiePath) and Assigned(wkeSetCookieJarPath) then
-    wkeSetCookieJarPath(thewebview, PwideChar(FwkeCookiePath));
+  if DirectoryExists(ExtractFileDir(Value)) and Assigned(wkeSetCookieJarFullPath) then
+    wkeSetCookieJarFullPath(thewebview, PwideChar(FwkeCookiePath));
 end;
 
 function TWkeWebBrowser.getZoom: Integer;
@@ -818,8 +818,8 @@ end;
 
 procedure TWkeWebBrowser.ShowDevTool;
 begin
- // if Assigned(thewebview) then
- //   wkeSetDebugConfig(thewebview,'showDevTools',PAnsiChar(AnsiToUtf8(ExtractFilePath(ParamStr(0))+'\front_end\inspector.html')));
+  if Assigned(thewebview) and FileExists(ExtractFilePath(ParamStr(0))+'\front_end\inspector.html') then
+    wkeSetDebugConfig(thewebview,'showDevTools',PAnsiChar(AnsiToUtf8(ExtractFilePath(ParamStr(0))+'\front_end\inspector.html')));
 end;
 
 procedure TWkeWebBrowser.SetZoom(const Value: Integer);
@@ -875,7 +875,7 @@ end;
 constructor TWkeApp.Create(Aowner: TComponent);
 begin
   inherited;
-  FWkeWebPages := TList{$IFDEF DELPHI15_UP}<TWkeWebBrowser>{$ENDIF}.create;
+  FWkeWebPages := TList{$IFDEF DELPHI16_UP}<TWkeWebBrowser>{$ENDIF}.create;
 end;
 
 destructor TWkeApp.Destroy;
