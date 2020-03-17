@@ -1,11 +1,10 @@
 package WkeForDelphi;
 
 {$R *.res}
-{$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
 {$ALIGN 8}
 {$ASSERTIONS ON}
 {$BOOLEVAL OFF}
-{$DEBUGINFO OFF}
+{$DEBUGINFO ON}
 {$EXTENDEDSYNTAX ON}
 {$IMPORTEDDATA ON}
 {$IOCHECKS ON}
@@ -23,20 +22,19 @@ package WkeForDelphi;
 {$WRITEABLECONST OFF}
 {$MINENUMSIZE 1}
 {$IMAGEBASE $400000}
-{$DEFINE DEBUG}
-{$ENDIF IMPLICITBUILDING}
+{$DESCRIPTION 'WKE FOR DELPHI BY LANGJI'}
 {$IMPLICITBUILD ON}
+{$DEFINE DEBUG}
 
 requires
   rtl,
   vcl;
 
 contains
-  Langji.Wke.Reg in 'Langji.Wke.Reg.pas',
-  Langji.Wke.types in 'Langji.Wke.types.pas',
-  Langji.Wke.lib in 'Langji.Wke.lib.pas',
-  Langji.Wke.Webbrowser in 'Langji.Wke.Webbrowser.pas',
-  Langji.Wke.IWebBrowser in 'Langji.Wke.IWebBrowser.pas',
-  Langji.Wke.CustomPage in 'Langji.Wke.CustomPage.pas';
+  Langji.Wke.Reg in 'src\Langji.Wke.Reg.pas',
+  Langji.Wke.types in 'src\Langji.Wke.types.pas',
+  Langji.Wke.lib in 'src\Langji.Wke.lib.pas',
+  Langji.Wke.Webbrowser in 'src\Langji.Wke.Webbrowser.pas',
+  Langji.Wke.CustomPage in 'src\Langji.Wke.CustomPage.pas';
 
 end.
