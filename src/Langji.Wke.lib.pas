@@ -233,6 +233,12 @@ var
   wkeNetSetData: procedure(jobPtr:Pointer; buf: Pointer;len: Integer);cdecl;
   wkeNetSetMIMEType: procedure (jobPtr: Pointer; stype: PAnsiChar); cdecl;
 
+  wkeNetHoldJobToAsynCommit: function(jobPtr: Pointer): BOOL; cdecl;
+  wkeNetContinueJob: procedure(jobPtr: Pointer); cdecl;
+  wkeNetCancelRequest: procedure(jobPtr: Pointer); cdecl;
+  wkeNetSetHTTPHeaderField: procedure(jobPtr: Pointer; key, value: PWideChar; response: BOOL); cdecl;
+  wkeSetContextMenuItemShow: procedure(webView: wkeWebView; item: wkeMenuItemId; isShow: BOOL); cdecl;
+
 
 
 
@@ -578,6 +584,16 @@ begin
     'wkeCreateWebCustomWindow');
   wkeUtilSerializeToMHTML := GetProcAddress(wkeLibHandle,
     'wkeUtilSerializeToMHTML');
+  wkeNetHoldJobToAsynCommit := GetProcAddress(wkeLibHandle,
+    'wkeNetHoldJobToAsynCommit');
+  wkeNetContinueJob := GetProcAddress(wkeLibHandle,
+    'wkeNetContinueJob');
+  wkeNetCancelRequest := GetProcAddress(wkeLibHandle,
+    'wkeNetCancelRequest');
+  wkeNetSetHTTPHeaderField := GetProcAddress(wkeLibHandle,
+    'wkeNetSetHTTPHeaderField');
+  wkeSetContextMenuItemShow := GetProcAddress(wkeLibHandle,
+    'wkeSetContextMenuItemShow');
   jsBindFunction := GetProcAddress(wkeLibHandle, 'jsBindFunction');
   jsBindGetter := GetProcAddress(wkeLibHandle, 'jsBindGetter');
   jsBindSetter := GetProcAddress(wkeLibHandle, 'jsBindSetter');

@@ -32,6 +32,24 @@ const
   WKE_MSG_MBUTTONDBLCLK = $0209;
   WKE_MSG_MOUSEWHEEL = $020A;
 
+type
+  // wkeMenuItemId
+  wkeMenuItemId = (
+   kWkeMenuSelectedAllId = 1 shl 1,
+    kWkeMenuSelectedTextId = 1 shl 2,
+    kWkeMenuUndoId = 1 shl 3,
+    kWkeMenuCopyImageId = 1 shl 4,
+    kWkeMenuInspectElementAtId = 1 shl 5,
+    kWkeMenuCutId = 1 shl 6,
+    kWkeMenuPasteId = 1 shl 7,
+    kWkeMenuPrintId = 1 shl 8,
+    kWkeMenuGoForwardId = 1 shl 9,
+    kWkeMenuGoBackId = 1 shl 10,
+    kWkeMenuReloadId = 1 shl 11,
+    kWkeMenuSaveImageId = 1 shl 12
+  );
+
+
   // WKE_SETTING_PAINTCALLBACK_IN_OTHER_THREAD=4;
 
 type
@@ -131,6 +149,7 @@ type
     scrollbarsVisible: Boolean;
     resizable: Boolean;
     fullscreen: Boolean;
+    dialog: Boolean;
   end;
 
   PwkeWindowFeatures = ^TwkeWindowFeatures;
@@ -378,7 +397,7 @@ type
 
   TOnConsoleMessgeEvent = procedure(Sender: TObject; const sMsg, source: string; const sline: Integer) of object;
 
-  TOnLoadUrlEndEvent = procedure(Sender: TObject; sUrl: string; buf: Pointer; len: Integer) of object;
+  TOnLoadUrlEndEvent = procedure(Sender: TObject; sUrl: string; job, buf: Pointer; len: Integer) of object;
 
   TOnLoadUrlBeginEvent = procedure(Sender: TObject; sUrl: string; job: Pointer; out bHook, bHandled: Boolean) of object;
 

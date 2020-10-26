@@ -24,7 +24,7 @@ uses
 {$ELSE}
   SysUtils, Classes, Controls, graphics, Forms,
 {$ENDIF}
-  Messages, windows, Langji.Wke.types, Langji.Wke.lib;
+  Messages, windows, Langji.Wke.types, Langji.Wke.lib, Generics.Collections;
 // Langji.Miniblink.libs, Langji.Miniblink.types,
 
 type
@@ -40,6 +40,8 @@ type
   // 浏览页面
   TWkeWebBrowser = class(TWinControl)
   private
+    FwkeWndProc: TWindowProcPtr;
+    FwkeLastHandle: THandle;
     thewebview: TwkeWebView;
     FwkeApp: TWkeApp;
   //  FCanBack, FCanForward: boolean;
@@ -120,6 +122,8 @@ type
     function GetContentHeight: Integer;
     function GetContentWidth: Integer;
     procedure setUserAgent(const Value: string);
+    procedure webviewWndProc(hwnd: THandle; uMsg: Cardinal; wParam: WPARAM;
+      lParam: LPARAM); stdcall;
 
     { Private declarations }
   protected
@@ -159,6 +163,10 @@ type
     ///   执行js并得到boolean返回值
     /// </summary>
     function GetJsBoolResult(const js: string): boolean;
+    /// <summary>
+    /// 是否显示指定的右键菜单
+    /// </summary>
+    procedure SetContextMenuItemShow(item: wkeMenuItemId; bIsShow: Boolean);
 
     /// <summary>
     /// 取webview 的DC
@@ -267,9 +275,18 @@ type
 implementation
 
 uses
-  dialogs, math;
+  dialogs, math, Ole2;
 
+var
+  g_WndProcBook: TDictionary<THandle, TWkeWebBrowser>;
 
+procedure wkeWindowProc(hwnd: THandle; uMsg: Cardinal; wParam: WPARAM; lParam: LPARAM); stdcall;
+begin
+  if g_WndProcBook.ContainsKey(hwnd) then
+    g_WndProcBook[hwnd].webviewWndProc(hwnd, uMsg, wParam, lParam)
+  else
+    DefWindowProcW(hwnd, uMsg, wParam, lParam);
+end;
 
 // ==============================================================================
 // 回调事件
@@ -407,12 +424,13 @@ begin
   FCookieEnabled := true;
   FpopupEnabled := true;
   FUserAgent :=
-    'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.1650.63 Safari/537.36 Langji.WKE 1.2';
+    'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.1650.63 Safari/537.36';
   FPlatform := wp_Win32;
   FLocalUrl := '';
   FLocalTitle := '';
   FLocalStorage := '';
   FCookiePath := '';
+  thewebview := nil;
 end;
 
 destructor TWkeWebBrowser.Destroy;
@@ -432,12 +450,15 @@ begin
 end;
 
 procedure TWkeWebBrowser.CreateWebView;
-
 begin
   thewebview := wkeCreateWebWindow(WKE_WINDOW_TYPE_CONTROL, handle, 0, 0, Width, height);
   if Assigned(thewebview) then
   begin
     ShowWindow(GetWebHandle, SW_NORMAL);
+    FwkeWndProc := Pointer(GetWindowLong(GetWebHandle, GWL_WNDPROC));
+    FwkeLastHandle := GetWebHandle();
+    g_WndProcBook.AddOrSetValue(FwkeLastHandle, Self);
+    SetWindowLong(GetWebHandle, GWL_WNDPROC, Cardinal(@wkeWindowProc));
     SetWindowLong(GetWebHandle, GWL_STYLE, GetWindowLong(GetWebHandle, GWL_STYLE) or WS_CHILD or WS_TABSTOP or
       WS_CLIPCHILDREN or WS_CLIPSIBLINGS);
 
@@ -572,7 +593,7 @@ end;
 procedure TWkeWebBrowser.DoWebViewLoadUrlEnd(Sender: TObject; sUrl: string; job, buf: Pointer; len: Integer);
 begin
   if Assigned(FOnLoadUrlEnd) then
-    FOnLoadUrlEnd(self, sUrl, buf, len);
+    FOnLoadUrlEnd(self, sUrl, job, buf, len);
 end;
 
 procedure TWkeWebBrowser.DoWebViewLoadUrlStart(Sender: TObject; sUrl: string;
@@ -618,6 +639,7 @@ procedure TWkeWebBrowser.DoWebViewWindowDestroy(Sender: TObject);
 begin
   if Assigned(FOnWindowDestroy) then
     FOnWindowDestroy(self);
+  g_WndProcBook.Remove(FwkeLastHandle);
 end;
 
 function TWkeWebBrowser.ExecuteJavascript(const js: string): boolean; // 执行js
@@ -876,7 +898,7 @@ begin
 {$ELSE}
     wkeLoadURL(thewebview, PansiChar(ansitoutf8(Aurl)));
 {$ENDIF}
-    MoveWindow(GetWebHandle, 0, 0, Width, height, true);
+    wkeMoveWindow(thewebview, 0, 0, Width, height);
   end;
 end;
 
@@ -890,6 +912,13 @@ procedure TWkeWebBrowser.Refresh;
 begin
   if Assigned(thewebview) then
     wkeReload(thewebview);
+end;
+
+procedure TWkeWebBrowser.SetContextMenuItemShow(item: wkeMenuItemId;
+  bIsShow: Boolean);
+begin
+   if Assigned(thewebview) then
+    wkeSetContextMenuItemShow(thewebview, item, bIsShow);
 end;
 
 procedure TWkeWebBrowser.SetCookie(const Value: string); // 设置cookie----------
@@ -910,7 +939,11 @@ end;
 procedure TWkeWebBrowser.SetDragEnabled(const Value: boolean);
 begin
   if Assigned(thewebview) then
+  begin
     wkeSetDragEnable(thewebview, Value);
+    if not Value then
+      RevokeDragDrop(WebViewHandle);
+  end;
 end;
 
 procedure TWkeWebBrowser.SetHeadless(const Value: boolean);
@@ -1006,8 +1039,19 @@ end;
 procedure TWkeWebBrowser.WM_SIZE(var msg: TMessage);
 begin
   inherited;
-    if Assigned(thewebview) then
-    MoveWindow(WebViewHandle, 0, 0, Width, height, true);
+  if Assigned(thewebview) then
+    wkeMoveWindow(thewebview, 0, 0, Width, height);
+end;
+
+procedure TWkeWebBrowser.webviewWndProc(hwnd: THandle; uMsg: Cardinal; wParam: WPARAM; lParam: LPARAM); stdcall;
+begin
+  case uMsg of
+    Messages.WM_SIZE:
+    begin
+      lParam := MakeLParam(Width, Height);
+    end;
+  end;
+  CallWindowProc(FwkeWndProc, hwnd, uMsg, wParam, lParam);
 end;
 
 procedure TWkeWebBrowser.WndProc(var msg: TMessage);
@@ -1174,6 +1218,11 @@ procedure TWkeApp.SetWkeUserAgent(const Value: string);
 begin
   FUserAgent := Value;
 end;
+
+initialization
+  g_WndProcBook := TDictionary<THandle,TWkeWebBrowser>.Create;
+finalization
+  g_WndProcBook.Free;
 
 end.
 
