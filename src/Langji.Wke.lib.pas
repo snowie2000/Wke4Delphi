@@ -193,6 +193,8 @@ var
     callback: wkeLoadUrlEndCallback; param: Pointer); cdecl;
   wkeOnDownload: procedure(webView: wkeWebView; callback: wkeDownloadCallback;
     param: Pointer); cdecl;
+  wkeOnDownload2: procedure(webView: wkeWebView; callback: wkeDownload2Callback;
+    param: Pointer); cdecl;
   wkeOnDocumentReady2: procedure(webView: wkeWebView;
     callback: wkeDocumentReadyCallback2; param: Pointer); cdecl;
   wkeOnURLChanged2: procedure(webView: wkeWebView;
@@ -238,6 +240,7 @@ var
   wkeNetCancelRequest: procedure(jobPtr: Pointer); cdecl;
   wkeNetSetHTTPHeaderField: procedure(jobPtr: Pointer; key, value: PWideChar; response: BOOL); cdecl;
   wkeSetContextMenuItemShow: procedure(webView: wkeWebView; item: wkeMenuItemId; isShow: BOOL); cdecl;
+  wkeOnLoadUrlFail: procedure(webView: wkeWebView; callback: wkeLoadUrlFailCallback; callbackParam: Pointer); cdecl;
 
 
 
@@ -554,7 +557,9 @@ begin
     'wkeSetUIThreadCallback');
   wkeOnLoadUrlBegin := GetProcAddress(wkeLibHandle, 'wkeOnLoadUrlBegin');
   wkeOnLoadUrlEnd := GetProcAddress(wkeLibHandle, 'wkeOnLoadUrlEnd');
+  wkeOnLoadUrlFail := GetProcAddress(wkeLibHandle, 'wkeOnLoadUrlFail');
   wkeOnDownload := GetProcAddress(wkeLibHandle, 'wkeOnDownload');
+  wkeOnDownload2 := GetProcAddress(wkeLibHandle, 'wkeOnDownload2');
   wkeOnDocumentReady2 := GetProcAddress(wkeLibHandle, 'wkeOnDocumentReady2');
   wkeOnURLChanged2 := GetProcAddress(wkeLibHandle, 'wkeOnURLChanged2');
   wkeSetProxy := GetProcAddress(wkeLibHandle, 'wkeSetProxy');

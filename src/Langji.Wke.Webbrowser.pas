@@ -70,10 +70,12 @@ type
     FOnConfirmBox: TOnConfirmBoxEvent;
     FOnPromptBox: TOnPromptBoxEvent;
     FOnDownload: TOnDownloadEvent;
+    FOnDownload2: TOnDownload2Event;
     FOnMouseOverUrlChange: TOnUrlChangeEvent;
     FOnConsoleMessage: TOnConsoleMessgeEvent;
     FOnLoadUrlEnd: TOnLoadUrlEndEvent;
     FOnLoadUrlBegin: TOnLoadUrlBeginEvent;
+    FOnLoadUrlFail: TOnLoadUrlFailEvent;
     FOnmbBindFunction: TOnmbJsBindFunction;
     function GetZoom: Integer;
     procedure SetZoom(const Value: Integer);
@@ -95,7 +97,9 @@ type
     procedure DoWebViewWindowClosing(Sender: TObject);
     procedure DoWebViewWindowDestroy(Sender: TObject);
     function DoWebViewDownloadFile(Sender: TObject; sUrl: string): boolean;
+    function DoWebViewDownloadFile2(Sender: TObject; sUrl, sFileName: string; var Handler: IFileDownloader): Boolean;
     procedure DoWebViewLoadUrlEnd(Sender: TObject; sUrl: string; job: Pointer; buf: Pointer; len: Integer);
+    procedure DoWebViewLoadUrlFail(Sender: TObject; sUrl: string; job: Pointer);
     procedure DoWebViewLoadUrlStart(Sender: TObject; sUrl: string; job: Pointer; out bhook, bHandle: boolean);
     procedure WM_SIZE(var msg: TMessage); message WM_SIZE;
     function GetCanBack: boolean;
@@ -234,10 +238,12 @@ type
     property OnConfirmBox: TOnConfirmBoxEvent read FOnConfirmBox write FOnConfirmBox;
     property OnPromptBox: TOnPromptBoxEvent read FOnPromptBox write FOnPromptBox;
     property OnDownloadFile: TOnDownloadEvent read FOnDownload write FOnDownload;
+    property OnDownloadFile2: TOnDownload2Event read FOnDownload2 write FOnDownload2;
     property OnMouseOverUrlChanged: TOnUrlChangeEvent read FOnMouseOverUrlChange write FOnMouseOverUrlChange; // 2018.3.14
     property OnConsoleMessage: TOnConsoleMessgeEvent read FOnConsoleMessage write FOnConsoleMessage;
     property OnLoadUrlBegin: TOnLoadUrlBeginEvent read FOnLoadUrlBegin write FOnLoadUrlBegin;
     property OnLoadUrlEnd: TOnLoadUrlEndEvent read FOnLoadUrlEnd write FOnLoadUrlEnd;
+    property OnLoadUrlFail: TOnLoadUrlFailEvent read FOnLoadUrlFail write FOnLoadUrlFail;
     property OnmbJsBindFunction: TOnmbJsBindFunction read FOnmbBindFunction write FOnmbBindFunction;
   end;
 
@@ -275,7 +281,7 @@ type
 implementation
 
 uses
-  dialogs, math, Ole2;
+  dialogs, math, Ole2, RegularExpressions;
 
 var
   g_WndProcBook: TDictionary<THandle, TWkeWebBrowser>;
@@ -395,10 +401,35 @@ begin
   result := TWkeWebBrowser(param).DoWebViewDownloadFile(TWkeWebBrowser(param), StrPas(url)); // WkeStringtoString(url));
 end;
 
+function DodownloadFile2(webView: wkeWebView; param: Pointer; expectedContentLength: Integer; const url, mime, disposition: PAnsiChar;
+    job:wkeNetJob; dataBind: pwkeNetJobDataBind): wkeDownloadOpt; cdecl; // url: wkeString): boolean; cdecl;
+var
+  handler: IFileDownloader; // buggy, don't use for now.
+  mh: TMatch;
+  sfname: string;
+begin
+  sfname := '';
+  if disposition <> nil then
+  begin
+    mh := TRegEx.Match(disposition, 'filename="(.+)"');
+    if mh.Success then
+      sfname := mh.Groups.Item[1].Value;
+  end;
+  if TWkeWebBrowser(param).DoWebViewDownloadFile2(TWkeWebBrowser(param), StrPas(url), sfname, handler) then
+    Result := kWkeDownloadOptCacheData
+  else
+    Result := kWkeDownloadOptCancel;
+end;
+
 procedure DoOnLoadUrlEnd(webView: wkeWebView; param: Pointer; const url: PansiChar; job: Pointer; buf: Pointer; len:
   Integer); cdecl;
 begin
   TWkeWebBrowser(param).DoWebViewLoadUrlEnd(TWkeWebBrowser(param), StrPas(url), job, buf, len);
+end;
+
+procedure DoOnLoadUrlFail(webView: wkeWebView; param: Pointer; const url: PansiChar; job: Pointer); cdecl;
+begin
+  TWkeWebBrowser(param).DoWebViewLoadUrlFail(TWkeWebBrowser(param), StrPas(url), job);
 end;
 
 function DoOnLoadUrlBegin(webView: wkeWebView; param: Pointer; url: PansiChar; job: Pointer): boolean; cdecl;
@@ -484,9 +515,13 @@ begin
     wkeOnConsoleMessage(thewebview, DoConsoleMessage, Self);
     wkeOnLoadUrlBegin(thewebview, DoOnLoadUrlBegin, self);
     wkeOnLoadUrlEnd(thewebview, DoOnLoadUrlEnd, self);
+    wkeOnLoadUrlFail(thewebview, DoOnLoadUrlFail, self);
 
     if Assigned(FOnDownload) then
       wkeOnDownload(thewebview, DodownloadFile, self);
+
+    if Assigned(FOnDownload2) then
+      wkeOnDownload2(thewebview, DodownloadFile2, self);
 
     if Assigned(FOnMouseOverUrlChange) then
       wkeOnMouseOverUrlChanged(thewebview, DoMouseOverUrlChange, self);
@@ -570,6 +605,15 @@ function TWkeWebBrowser.DoWebViewDownloadFile(Sender: TObject; sUrl: string): bo
 begin
   if Assigned(FOnDownload) then
     FOnDownload(self, sUrl);
+  Result := True;
+end;
+
+function TWkeWebBrowser.DoWebViewDownloadFile2(Sender: TObject; sUrl, sFileName: string;
+  var Handler: IFileDownloader): Boolean;
+begin
+  if Assigned(FOnDownload2) then
+    FOnDownload2(Sender, sUrl, sFileName, Handler);
+  Result := Handler <> nil;
 end;
 
 procedure TWkeWebBrowser.DoWebViewLoadEnd(Sender: TObject; sUrl: string; loadresult: wkeLoadingResult);
@@ -594,6 +638,12 @@ procedure TWkeWebBrowser.DoWebViewLoadUrlEnd(Sender: TObject; sUrl: string; job,
 begin
   if Assigned(FOnLoadUrlEnd) then
     FOnLoadUrlEnd(self, sUrl, job, buf, len);
+end;
+
+procedure TWkeWebBrowser.DoWebViewLoadUrlFail(Sender: TObject; sUrl: string; job: Pointer);
+begin
+  if Assigned(FOnLoadUrlFail) then
+    FOnLoadUrlFail(self, sUrl, job);
 end;
 
 procedure TWkeWebBrowser.DoWebViewLoadUrlStart(Sender: TObject; sUrl: string;

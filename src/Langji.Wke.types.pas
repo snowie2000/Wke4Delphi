@@ -69,6 +69,8 @@ type
 
   wkeFrameHwnd = Pointer;
 
+  wkeNetJob = Pointer;
+
   wkeProxyType = (WKE_PROXY_NONE, WKE_PROXY_HTTP, WKE_PROXY_SOCKS4, WKE_PROXY_SOCKS4A, WKE_PROXY_SOCKS5, WKE_PROXY_SOCKS5HOSTNAME);
 
   TwkeProxyType = wkeProxyType;
@@ -204,6 +206,18 @@ type
 
   wkeRequestType = (kWkeRequestTypeInvalidation, kWkeRequestTypeGet, kWkeRequestTypePost, kWkeRequestTypePut);
 
+  wkeDownloadOpt = (kWkeDownloadOptCancel, kWkeDownloadOptCacheData);
+
+  wkeNetJobDataRecvCallback = procedure(ptr: Pointer; job: wkeNetJob; const data: PAnsiChar; length: Integer); cdecl;
+  wkeNetJobDataFinishCallback = procedure(ptr: Pointer; job: wkeNetJob; result: wkeLoadingResult); cdecl;
+
+  wkeNetJobDataBind = packed record
+    param: Pointer;
+    recvCallback: wkeNetJobDataRecvCallback;
+    finishCallback:wkeNetJobDataFinishCallback;
+  end;
+  pwkeNetJobDataBind = ^wkeNetJobDataBind;
+
   // typedef struct _wkeWindowCreateInfo {
   // int size;
   // HWND parent;
@@ -327,6 +341,9 @@ type
   // typedef bool(*wkeDownloadCallback)(wkeWebView webView, void* param, const char* url);
   wkeDownloadCallback = function(webView: wkeWebView; param: Pointer; url: PAnsiChar): Boolean; cdecl; // wkeString): boolean;
 
+  wkeDownload2Callback = function(webView: wkeWebView; param: Pointer; expectedContentLength: Integer; const url, mime, disposition: PAnsiChar;
+    job:wkeNetJob; dataBind: pwkeNetJobDataBind): wkeDownloadOpt; cdecl; // wkeString): boolean;
+
   wkeOnCallUiThread = procedure(webView: wkeWebView; paramOnInThread: Pointer); cdecl; // 2018.02.07
 
   wkeCallUiThread = procedure(webView: wkeWebView; func: wkeOnCallUiThread; param: Pointer); cdecl; // 2018.02.07
@@ -337,6 +354,8 @@ type
   wkeLoadUrlEndCallback = procedure(webView: wkeWebView; param: Pointer; const url: PAnsiChar; job: Pointer; buf:
     Pointer; len: Integer); cdecl;
   // 2018.02.07
+
+  wkeLoadUrlFailCallback = procedure(webView: wkeWebView; param: Pointer; const url: PAnsiChar; job: Pointer); cdecl;
 
   wkeNetResponseCallback = function(webView: wkeWebView; param: Pointer; url: wkeString; job: Pointer): Boolean; cdecl; // 2018.02.07
 
@@ -375,6 +394,13 @@ type
 
   TwkePlatform = (wp_Win32, wp_Android, wp_Ios);
 
+  // 高级文件下载器接口
+  IFileDownloader = interface
+    ['{D04619E6-0827-43E0-8602-C2B8848DD29D}']
+    function OnRecvData(const data: Pointer; nLen: Int64): Boolean;
+    procedure OnFinish(eResult: TwkeLoadingResult);
+  end;
+
   // 事件定义
   TOnTitleChangeEvent = procedure(Sender: TObject; sTitle: string) of object;
 
@@ -395,9 +421,13 @@ type
 
   TOnDownloadEvent = procedure(Sender: TObject; sUrl: string) of object;
 
+  TOnDownload2Event = procedure(Sender: TObject; sUrl: string; sFileName: string; var Handler: IFileDownloader) of object;
+
   TOnConsoleMessgeEvent = procedure(Sender: TObject; const sMsg, source: string; const sline: Integer) of object;
 
   TOnLoadUrlEndEvent = procedure(Sender: TObject; sUrl: string; job, buf: Pointer; len: Integer) of object;
+
+  TOnLoadUrlFailEvent = procedure(Sender: TObject; sUrl: string; job: Pointer) of object;
 
   TOnLoadUrlBeginEvent = procedure(Sender: TObject; sUrl: string; job: Pointer; out bHook, bHandled: Boolean) of object;
 
