@@ -44,6 +44,7 @@ type
     FwkeLastHandle: THandle;
     thewebview: TwkeWebView;
     FwkeApp: TWkeApp;
+    FDragEnabled: Boolean;
   //  FCanBack, FCanForward: boolean;
     FLocalUrl, FLocalTitle: string; // µ±«∞Url Title
     FpopupEnabled: boolean; // ‘ –ÌµØ¥∞
@@ -539,9 +540,11 @@ begin
       wkeSetLocalStorageFullPath(thewebview, PwideChar(FLocalStorage));
 
     wkeSetNavigationToNewWindowEnable(thewebview, FpopupEnabled);
-    wkeSetCspCheckEnable(thewebview, false); // πÿ±’øÁ”ÚºÏ≤È
+    wkeSetCspCheckEnable(thewebview, True); // øÁ”ÚºÏ≤È
     jsBindFunction('GetSource', DoGetSource, 1);
-
+    wkeSetDragEnable(thewebview, FDragEnabled);
+    if not FDragEnabled then
+      RevokeDragDrop(GetWebHandle);
   end;
 end;
 
@@ -988,10 +991,11 @@ end;
 
 procedure TWkeWebBrowser.SetDragEnabled(const Value: boolean);
 begin
+  FDragEnabled := Value;
   if Assigned(thewebview) then
   begin
     wkeSetDragEnable(thewebview, Value);
-    if not Value then
+    if not FDragEnabled then
       RevokeDragDrop(WebViewHandle);
   end;
 end;
@@ -1198,7 +1202,7 @@ begin
   result := newBrowser;
   wkeSetNavigationToNewWindowEnable(newBrowser.thewebview, true);
 
-  wkeSetCspCheckEnable(newBrowser.thewebview, false);
+  wkeSetCspCheckEnable(newBrowser.thewebview, True);
 end;
 
 function TWkeApp.CreateWebbrowser(Aparent: TWinControl): TWkeWebBrowser;
