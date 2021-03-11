@@ -276,9 +276,7 @@ type
 
   FILE_SEEK = function(handle: Pointer; offset, origin: Integer): Integer; cdecl;
 
-  wkeWebView = Pointer;
-
-  TwkeWebView = wkeWebView;
+  wkeWebView = class;
 
   JScript = class;
 
@@ -431,6 +429,145 @@ type
 
   TOnLoadUrlBeginEvent = procedure(Sender: TObject; sUrl: string; job: Pointer; out bHook, bHandled: Boolean) of object;
 
+//==============================================================================
+// webview
+//==============================================================================
+
+  wkeWebView = class
+  private
+    class function GetVersion: Integer;
+    class function GetVersionString: string;
+    function GetName: string;
+    procedure SetName(const AName: string);
+    function IsTransparent: Boolean;
+    procedure SetTransparent(ATransparent: Boolean);
+    procedure SetUserAgent(const AUserAgent: string);
+  //  function IsLoadingSucceeded: Boolean;
+  //  function IsLoadingFailed: Boolean;
+  //  function IsLoadingCompleted: Boolean;
+    function IsDocumentReady: Boolean;
+    function GetTitle: string;
+    function GetWidth: Integer;
+    function GetHeight: Integer;
+    function GetContentWidth: Integer;
+    function GetContentHeight: Integer;
+  //  procedure SetDirty(dirty: Boolean);
+  //  function IsDirty: Boolean;
+    function GetViewDC: HDC;
+    function GetCookie: string;
+    procedure SetCookieEnabled(enable: Boolean);
+    function IsCookieEnabled: Boolean;
+    procedure SetMediaVolume(volume: Single);
+    function GetMediaVolume: Single;
+    function GetCaretRect: wkeRect;
+    procedure SetZoomFactor(factor: Single);
+    function GetZoomFactor: Single;
+    procedure SetEditable(editable: Boolean);
+    function GetWindowHandle: HWND;
+    procedure SetWindowTitle(const ATitle: string);
+    function GetLocalUrl: string;
+    procedure SetLocaStoragePath(const Value: string);
+  public
+    class procedure Initialize;
+    class procedure InitializeEx(settings: PwkeSettings);
+    class procedure Configure(settings: PwkeSettings);
+    class procedure Finalize;
+    class procedure Update;
+    class procedure SetFileSystem(pfn_open: FILE_OPEN; pfn_close: FILE_CLOSE; pfn_size: FILE_SIZE; pfn_read: FILE_READ; pfn_seek: FILE_SEEK);
+    class function CreateWebView: wkeWebView;
+    class function CreateWebWindow(AType: wkeWindowType; parent: HWND; x: Integer; y: Integer; width: Integer; height: Integer): wkeWebView;
+    procedure DestroyWebWindow;
+    procedure DestroyWebView;
+    procedure LoadURL(const AURL: string);
+    procedure PostURL(const AURL, APostData: string; PostLen: Integer);
+    procedure LoadHTML(const AHTML: string);
+    procedure LoadFile(const AFileName: string);
+    procedure Load(const AStr: string);
+    procedure StopLoading;
+    procedure Reload;
+    procedure Resize(w: Integer; h: Integer);
+   // procedure AddDirtyArea(x: Integer; y: Integer; w: Integer; h: Integer);
+   // procedure LayoutIfNeeded;
+    procedure Paint(bits: Pointer; bufWid: Integer; bufHei: Integer; xDst: Integer; yDst: Integer; w: Integer; h: Integer; xSrc: Integer; ySrc: Integer; bCopyAlpha: Boolean);
+    procedure Paint2(bits: Pointer; pitch: Integer);
+  //  procedure RepaintIfNeeded;
+    function CanGoBack: Boolean;
+    function GoBack: Boolean;
+    function CanGoForward: Boolean;
+    function GoForward: Boolean;
+    procedure EditorSelectAll;
+    procedure EditorCopy;
+    procedure EditorCut;
+    procedure EditorPaste;
+    procedure EditorDelete;
+    function FireMouseEvent(AMessage: LongInt; x: Integer; y: Integer; flags: LongInt): Boolean;
+    function FireContextMenuEvent(x: Integer; y: Integer; flags: LongInt): Boolean;
+    function FireMouseWheelEvent(x: Integer; y: Integer; delta: Integer; flags: LongInt): Boolean;
+    function FireKeyUpEvent(virtualKeyCode: LongInt; flags: LongInt; systemKey: Boolean): Boolean;
+    function FireKeyDownEvent(virtualKeyCode: LongInt; flags: LongInt; systemKey: Boolean): Boolean;
+    function FireKeyPressEvent(charCode: LongInt; flags: LongInt; systemKey: Boolean): Boolean;
+    procedure SetFocus;
+    procedure SetCookie(const scookie:string);  //2018.01.17ÐÂÔö
+
+    procedure KillFocus;
+    function RunJS(const AScript: string): jsValue;
+    function GlobalExec: jsExecState;
+    procedure Sleep;
+    procedure Wake;
+    function IsAwake: Boolean;
+    class function GetString(AString: wkeString): string;
+    class procedure SetString(AString: wkeString; const AStr: string);
+    procedure SetOnTitleChanged(callback: wkeTitleChangedCallback; callbackParam: Pointer);
+    procedure SetOnURLChanged(callback: wkeURLChangedCallback; callbackParam: Pointer);
+    procedure SetOnPaintUpdated(callback: wkePaintUpdatedCallback; callbackParam: Pointer);
+    procedure SetOnAlertBox(callback: wkeAlertBoxCallback; callbackParam: Pointer);
+    procedure SetOnConfirmBox(callback: wkeConfirmBoxCallback; callbackParam: Pointer);
+    procedure SetOnPromptBox(callback: wkePromptBoxCallback; callbackParam: Pointer);
+    procedure SetOnNavigation(callback: wkeNavigationCallback; param: Pointer);
+    procedure SetOnCreateView(callback: wkeCreateViewCallback; param: Pointer);
+    procedure SetOnConsoleMessage(callback: wkeConsoleMessageCallback; callbackParam: Pointer);
+    procedure SetOnDocumentReady(callback: wkeDocumentReadyCallback; param: Pointer);
+    procedure SetOnLoadingFinish(callback: wkeLoadingFinishCallback; param: Pointer);
+    procedure SetOnWindowClosing(callback: wkeWindowClosingCallback; param: Pointer);
+    procedure SetOnWindowDestroy(callback: wkeWindowDestroyCallback; param: Pointer);
+    procedure SetOnDownload(callback:wkeDownloadCallback; param: Pointer);
+    procedure SetOnDownload2(callback:wkeDownload2Callback; param: Pointer);
+    procedure ShowWindow(show: Boolean);
+    procedure EnableWindow(enable: Boolean);
+    procedure MoveWindow(x: Integer; y: Integer; width: Integer; height: Integer);
+    procedure MoveToCenter;
+    procedure ResizeWindow(width: Integer; height: Integer);
+  public
+    property Name: string read GetName write SetName;
+    property Version: Integer read GetVersion;
+    property VersionString: string read GetVersionString;
+    property Transparent: Boolean read IsTransparent write SetTransparent;
+    property UserAgent: string write SetUserAgent;
+   // property LoadingSucceeded: Boolean read IsLoadingSucceeded;
+  //  property LoadingFailed: Boolean read IsLoadingFailed;
+  //  property LoadingCompleted: Boolean read IsLoadingCompleted;
+    property DocumentReady: Boolean read IsDocumentReady;
+    property Title: string read GetTitle;
+    property Width: Integer read GetWidth;
+    property Height: Integer read GetHeight;
+    property ContentWidth: Integer read GetContentWidth;
+    property ContentHeight: Integer read GetContentHeight;
+  //  property Dirty: Boolean read IsDirty write SetDirty;
+    property ViewDC: HDC read GetViewDC;
+    property Cookie: string read GetCookie write SetCookie;         //2018.01.17
+    property CookieEnabled: Boolean read IsCookieEnabled write SetCookieEnabled;
+    property LocalStoragePath:string  write SetLocaStoragePath;    //2018.1.20
+    property MediaVolume: Single read GetMediaVolume write SetMediaVolume;
+    property CaretRect: wkeRect read GetCaretRect;
+    property ZoomFactor: Single read GetZoomFactor write SetZoomFactor;
+    property Editable: Boolean write SetEditable;
+    property WindowHandle: HWND read GetWindowHandle;
+    property WindowTitle: string write SetWindowTitle;
+    property LocalUrl:string read GetLocalUrl;
+  end;
+
+  TWkeWebView = wkeWebView;
+
 
 
 //------------------------------------------------------------------------------
@@ -474,7 +611,7 @@ type
     function EmptyArray: jsValue; {$IFDEF SupportInline}inline;{$ENDIF}
     function Object_(obj: PjsData): jsValue; {$IFDEF SupportInline}inline;{$ENDIF}
     function Function_(obj: PjsData): jsValue; {$IFDEF SupportInline}inline;{$ENDIF}
-    function GetData(AObject: jsValue): PjsData;
+    function GetData(AObject: jsValue): pjsData; {$IFDEF SupportInline}inline;{$ENDIF}
     function Get(AObject: jsValue; const prop: string): jsValue; {$IFDEF SupportInline}inline;{$ENDIF}
     procedure Set_(AObject: jsValue; const prop: string; v: jsValue); {$IFDEF SupportInline}inline;{$ENDIF}
     function GetAt(AObject: jsValue; index: Integer): jsValue; {$IFDEF SupportInline}inline;{$ENDIF}
@@ -494,12 +631,570 @@ type
 implementation
 
    uses Langji.Wke.lib;
+{ wkeWebView }
+
+
+
+
+class procedure wkeWebView.Initialize;
+begin
+  wkeInitialize;
+end;
+
+class procedure wkeWebView.InitializeEx(settings: PwkeSettings);
+begin
+  wkeInitializeEx(settings);
+end;
+
+class procedure wkeWebView.Configure(settings: PwkeSettings);
+begin
+  wkeConfigure(settings);
+end;
+
+class procedure wkeWebView.Finalize;
+begin
+  wkeFinalize;
+end;
+
+class procedure wkeWebView.Update;
+begin
+  wkeUpdate;
+end;
+
+class function wkeWebView.GetVersion: Integer;
+begin
+  Result := wkeGetVersion;
+end;
+
+class function wkeWebView.GetVersionString: string;
+begin
+  Result := string(AnsiString(wkeGetVersionString));
+end;
+
+class procedure wkeWebView.SetFileSystem(pfn_open: FILE_OPEN; pfn_close: FILE_CLOSE; pfn_size: FILE_SIZE; pfn_read: FILE_READ; pfn_seek: FILE_SEEK);
+begin
+  wkeSetFileSystem(pfn_open, pfn_close, pfn_size, pfn_read, pfn_seek);
+end;
+
+class function wkeWebView.CreateWebView: wkeWebView;
+begin
+  Result := wkeCreateWebView;
+end;
+
+procedure wkeWebView.DestroyWebView;
+begin
+  wkeDestroyWebView(Self);
+end;
+
+function wkeWebView.GetName: string;
+begin
+  Result := string(AnsiString(wkeGetName(Self)));
+end;
+
+procedure wkeWebView.SetName(const AName: string);
+begin
+  wkeSetName(Self, PAnsiChar(AnsiString(AName)));
+end;
+
+function wkeWebView.IsTransparent: Boolean;
+begin
+  Result := wkeIsTransparent(Self);
+end;
+
+procedure wkeWebView.SetTransparent(ATransparent: Boolean);
+begin
+  wkeSetTransparent(Self, ATransparent);
+end;
+
+procedure wkeWebView.SetUserAgent(const AUserAgent: string);
+begin
+{$IFDEF UNICODE}
+   wkeSetUserAgentW(Self, PChar(AUserAgent));
+{$ELSE}
+   wkeSetUserAgent(Self, PChar({$IFDEF FPC}AUserAgent{$ELSE}AnsiToUtf8(AUserAgent){$ENDIF}));
+{$ENDIF}
+end;
+
+procedure wkeWebView.LoadURL(const AURL: string);
+begin
+{$IFDEF UNICODE}
+  wkeLoadURLW(Self, PChar(AURL));
+{$ELSE}
+  wkeLoadURL(Self, PChar({$IFDEF FPC}AURL{$ELSE}AnsiToUtf8(AURL){$ENDIF}));
+{$ENDIF}
+end;
+
+procedure wkeWebView.PostURL(const AURL, APostData: string; PostLen: Integer);
+begin
+{$IFDEF UNICODE}
+   wkePostURLW(Self, PChar(AURL), PAnsiChar(AnsiString(APostData)), PostLen);
+{$ELSE}
+   wkePostURL(Self, PChar({$IFDEF FPC}AURL{$ELSE}AnsiToUtf8(AURL){$ENDIF}),
+     PAnsiChar(AnsiString({$IFDEF FPC}Utf8ToAnsi(APostData){$ELSE}APostData{$ENDIF})), PostLen);
+{$ENDIF}
+end;
+
+procedure wkeWebView.LoadHTML(const AHTML: string);
+begin
+{$IFDEF UNICODE}
+  wkeLoadHTMLW(Self, PChar(AHTML));
+{$ELSE}
+  wkeLoadHTML(Self, PChar({$IFDEF FPC}AHTML{$ELSE}AnsiToUtf8(AHTML){$ENDIF}));
+{$ENDIF}
+end;
+
+procedure wkeWebView.LoadFile(const AFileName: string);
+begin
+{$IFDEF UNICODE}
+  wkeLoadFileW(Self, PChar(AFileName));
+{$ELSE}
+  wkeLoadFile(Self, PChar({$IFDEF FPC}AFileName{$ELSE}AnsiToUtf8(AFileName){$ENDIF}));
+{$ENDIF}
+end;
+
+procedure wkeWebView.Load(const AStr: string);
+begin
+{$IFDEF UNICODE}
+  wkeLoadW(Self, PChar(AStr))
+{$ELSE}
+  wkeLoad(Self, PChar({$IFDEF FPC}AStr{$ELSE}AnsiToUTf8(AStr){$ENDIF}))
+{$ENDIF}
+end;
+
+//function wkeWebView.IsLoading: Boolean;
+//begin
+//  Result := wkeIsLoading(Self);
+//end;
+
+//
+//function wkeWebView.IsLoadingCompleted: Boolean;
+//begin
+//  Result := wkeIsLoadingCompleted(Self);
+//end;
+
+function wkeWebView.IsDocumentReady: Boolean;
+begin
+  Result := wkeIsDocumentReady(Self);
+end;
+
+procedure wkeWebView.StopLoading;
+begin
+  wkeStopLoading(Self);
+end;
+
+procedure wkeWebView.Reload;
+begin
+  wkeReload(Self);
+end;
+
+function wkeWebView.GetTitle: string;
+begin
+{$IFDEF UNICODE}
+  Result := wkeGetTitleW(Self);
+{$ELSE}
+  Result := {$IFDEF FPC}wkeGetTitle(Self){$ELSE}Utf8ToAnsi(wkeGetTitle(Self)){$ENDIF};
+{$ENDIF}
+end;
+
+procedure wkeWebView.Resize(w: Integer; h: Integer);
+begin
+  wkeResize(Self, w, h);
+end;
+
+function wkeWebView.GetWidth: Integer;
+begin
+  Result := wkeGetWidth(Self);
+end;
+
+function wkeWebView.GetHeight: Integer;
+begin
+  Result := wkeGetHeight(Self);
+end;
+
+function wkeWebView.GetLocalUrl: string;
+begin
+  result :=wkeGetURL(Self);
+end;
+
+function wkeWebView.GetContentWidth: Integer;
+begin
+  Result := wkeGetContentWidth(Self);
+end;
+
+function wkeWebView.GetContentHeight: Integer;
+begin
+  Result := wkeGetContentHeight(Self);
+end;
+
+//procedure wkeWebView.SetDirty(dirty: Boolean);
+//begin
+//  wkeSetDirty(Self, dirty);
+//end;
+//
+//
+//procedure wkeWebView.LayoutIfNeeded;
+//begin
+//  wkeLayoutIfNeeded(Self);
+//end;
+
+procedure wkeWebView.Paint(bits: Pointer; bufWid: Integer; bufHei: Integer; xDst: Integer; yDst: Integer; w: Integer; h: Integer; xSrc: Integer; ySrc: Integer; bCopyAlpha: Boolean);
+begin
+  wkePaint(Self, bits, bufWid, bufHei, xDst, yDst, w, h, xSrc, ySrc, bCopyAlpha);
+end;
+
+procedure wkeWebView.Paint2(bits: Pointer; pitch: Integer);
+begin
+  wkePaint2(Self, bits, pitch);
+end;
+
+//procedure wkeWebView.RepaintIfNeeded;
+//begin
+//  wkeRepaintIfNeeded(Self);
+//end;
+
+function wkeWebView.GetViewDC: HDC;
+begin
+  Result := wkeGetViewDC(Self);
+end;
+
+function wkeWebView.CanGoBack: Boolean;
+begin
+  Result := wkeCanGoBack(Self);
+end;
+
+function wkeWebView.GoBack: Boolean;
+begin
+  Result := wkeGoBack(Self);
+end;
+
+function wkeWebView.CanGoForward: Boolean;
+begin
+  Result := wkeCanGoForward(Self);
+end;
+
+function wkeWebView.GoForward: Boolean;
+begin
+  Result := wkeGoForward(Self);
+end;
+
+procedure wkeWebView.EditorSelectAll;
+begin
+  wkeEditorSelectAll(Self);
+end;
+
+procedure wkeWebView.EditorCopy;
+begin
+  wkeEditorCopy(Self);
+end;
+
+procedure wkeWebView.EditorCut;
+begin
+  wkeEditorCut(Self);
+end;
+
+procedure wkeWebView.EditorPaste;
+begin
+  wkeEditorPaste(Self);
+end;
+
+procedure wkeWebView.EditorDelete;
+begin
+  wkeEditorDelete(Self);
+end;
+
+function wkeWebView.GetCookie: string;
+begin
+{$IFDEF UNICODE}
+  Result := wkeGetCookieW(Self);
+{$ELSE}
+  Result := {$IFDEF FPC}wkeGetCookie(Self){$ELSE}Utf8ToAnsi(wkeGetCookie(Self)){$ENDIF};
+{$ENDIF}
+end;
+
+procedure wkeWebView.SetCookie(const scookie: string);
+begin
+  if Assigned(wkeSetCookie) then
+    wkeSetCookie(Self,PansiChar(AnsiToUtf8( GetLocalUrl)),PAnsiChar(AnsiToUtf8(scookie)));
+end;
+
+procedure wkeWebView.SetCookieEnabled(enable: Boolean);
+begin
+
+  if Assigned(wkeSetCookieEnabled) then
+    wkeSetCookieEnabled(Self, enable);
+end;
+
+function wkeWebView.IsCookieEnabled: Boolean;
+begin
+  Result := wkeIsCookieEnabled(Self);
+end;
+
+procedure wkeWebView.SetMediaVolume(volume: Single);
+begin
+  wkeSetMediaVolume(Self, volume);
+end;
+
+function wkeWebView.GetMediaVolume: Single;
+begin
+  Result := wkeGetMediaVolume(Self);
+end;
+
+function wkeWebView.FireMouseEvent(AMessage: LongInt; x: Integer; y: Integer; flags: LongInt): Boolean;
+begin
+  Result := wkeFireMouseEvent(Self, AMessage, x, y, flags);
+end;
+
+function wkeWebView.FireContextMenuEvent(x: Integer; y: Integer; flags: LongInt): Boolean;
+begin
+  Result := wkeFireContextMenuEvent(Self, x, y, flags);
+end;
+
+function wkeWebView.FireMouseWheelEvent(x: Integer; y: Integer; delta: Integer; flags: LongInt): Boolean;
+begin
+  Result := wkeFireMouseWheelEvent(Self, x, y, delta, flags);
+end;
+
+function wkeWebView.FireKeyUpEvent(virtualKeyCode: LongInt; flags: LongInt; systemKey: Boolean): Boolean;
+begin
+  Result := wkeFireKeyUpEvent(Self, virtualKeyCode, flags, systemKey);
+end;
+
+function wkeWebView.FireKeyDownEvent(virtualKeyCode: LongInt; flags: LongInt; systemKey: Boolean): Boolean;
+begin
+  Result := wkeFireKeyDownEvent(Self, virtualKeyCode, flags, systemKey);
+end;
+
+function wkeWebView.FireKeyPressEvent(charCode: LongInt; flags: LongInt; systemKey: Boolean): Boolean;
+begin
+  Result := wkeFireKeyPressEvent(Self, charCode, flags, systemKey);
+end;
+
+procedure wkeWebView.SetFocus;
+begin
+  wkeSetFocus(Self);
+end;
+
+procedure wkeWebView.SetLocaStoragePath(const Value: string);
+begin
+{$IFDEF UNICODE}
+  wkeSetLocalStorageFullPath(self,PChar(value));
+{$ELSE}
+   wkeSetLocalStorageFullPath(self,PwideChar(value));
+{$ENDIF}
+end;
+
+procedure wkeWebView.KillFocus;
+begin
+  wkeKillFocus(Self);
+end;
+
+function wkeWebView.GetCaretRect: wkeRect;
+begin
+  Result := wkeGetCaretRect(Self);
+end;
+
+function wkeWebView.RunJS(const AScript: string): jsValue;
+begin
+{$IFDEF UNICODE}
+  Result := wkeRunJSW(Self, PChar(AScript));
+{$ELSE}
+  Result := wkeRunJS(Self, PChar({$IFDEF FPC}AScript{$ELSE}AnsiToUtf8(AScript){$ENDIF}));
+{$ENDIF}
+end;
+
+function wkeWebView.GlobalExec: jsExecState;
+begin
+  Result := wkeGlobalExec(Self);
+end;
+
+procedure wkeWebView.Sleep;
+begin
+  wkeSleep(Self);
+end;
+
+procedure wkeWebView.Wake;
+begin
+  wkeWake(Self);
+end;
+
+function wkeWebView.IsAwake: Boolean;
+begin
+  Result := wkeIsAwake(Self);
+end;
+
+procedure wkeWebView.SetZoomFactor(factor: Single);
+begin
+  wkeSetZoomFactor(Self, factor);
+end;
+
+function wkeWebView.GetZoomFactor: Single;
+begin
+  Result := wkeGetZoomFactor(Self);
+end;
+
+procedure wkeWebView.SetEditable(editable: Boolean);
+begin
+  wkeSetEditable(Self, editable);
+end;
+
+class function wkeWebView.GetString(AString: wkeString): string;
+begin
+{$IFDEF UNICODE}
+  Result := wkeGetStringW(AString);
+{$ELSE}
+  Result := {$IFDEF FPC}wkeGetString(AString){$ELSE}Utf8ToAnsi(wkeGetString(AString)){$ENDIF};
+{$ENDIF}
+end;
+
+class procedure wkeWebView.SetString(AString: wkeString; const AStr: string);
+begin
+{$IFDEF UNICODE}
+  wkeSetStringW(AString, PChar(AStr), Length(AStr));
+{$ELSE}
+  wkeSetString(AString, PChar({$IFDEF FPC}AStr{$ELSE}AnsiToUtf8(AStr){$ENDIF}), Length(AStr));
+{$ENDIF}
+end;
+
+procedure wkeWebView.SetOnTitleChanged(callback: wkeTitleChangedCallback; callbackParam: Pointer);
+begin
+  wkeOnTitleChanged(Self, callback, callbackParam);
+end;
+
+procedure wkeWebView.SetOnURLChanged(callback: wkeURLChangedCallback; callbackParam: Pointer);
+begin
+  wkeOnURLChanged(Self, callback, callbackParam);
+end;
+
+procedure wkeWebView.SetOnPaintUpdated(callback: wkePaintUpdatedCallback; callbackParam: Pointer);
+begin
+  wkeOnPaintUpdated(Self, callback, callbackParam);
+end;
+
+procedure wkeWebView.SetOnAlertBox(callback: wkeAlertBoxCallback; callbackParam: Pointer);
+begin
+  wkeOnAlertBox(Self, callback, callbackParam);
+end;
+
+procedure wkeWebView.SetOnConfirmBox(callback: wkeConfirmBoxCallback; callbackParam: Pointer);
+begin
+  wkeOnConfirmBox(Self, callback, callbackParam);
+end;
+
+procedure wkeWebView.SetOnConsoleMessage(callback: wkeConsoleMessageCallback;
+  callbackParam: Pointer);
+begin
+  wkeOnConsoleMessage(Self, callback, callbackParam);
+end;
+
+procedure wkeWebView.SetOnPromptBox(callback: wkePromptBoxCallback; callbackParam: Pointer);
+begin
+  wkeOnPromptBox(Self, callback, callbackParam);
+end;
+
+procedure wkeWebView.SetOnNavigation(callback: wkeNavigationCallback; param: Pointer);
+begin
+  wkeOnNavigation(Self, callback, param);
+end;
+
+procedure wkeWebView.SetOnCreateView(callback: wkeCreateViewCallback; param: Pointer);
+begin
+  wkeOnCreateView(Self, callback, param);
+end;
+
+procedure wkeWebView.SetOnDocumentReady(callback: wkeDocumentReadyCallback; param: Pointer);
+begin
+  wkeOnDocumentReady(Self, callback, param);
+end;
+
+procedure wkeWebView.SetOnDownload(callback: wkeDownloadCallback;
+  param: Pointer);
+begin
+  wkeOnDownload(self,callback,param);
+end;
+
+procedure wkeWebView.SetOnDownload2(callback: wkeDownload2Callback; param: Pointer);
+begin
+  wkeOnDownload2(self,callback,param);
+end;
+
+procedure wkeWebView.SetOnLoadingFinish(callback: wkeLoadingFinishCallback; param: Pointer);
+begin
+  wkeOnLoadingFinish(Self, callback, param);
+end;
+
+class function wkeWebView.CreateWebWindow(AType: wkeWindowType; parent: HWND; x: Integer; y: Integer; width: Integer; height: Integer): wkeWebView;
+begin
+  Result := wkeCreateWebWindow(AType, parent, x, y, width, height);
+end;
+
+procedure wkeWebView.DestroyWebWindow;
+begin
+  wkeDestroyWebWindow(Self);
+end;
+
+
+
+function wkeWebView.GetWindowHandle: HWND;
+begin
+  Result := wkeGetWindowHandle(Self);
+end;
+
+procedure wkeWebView.SetOnWindowClosing(callback: wkeWindowClosingCallback; param: Pointer);
+begin
+  wkeOnWindowClosing(Self, callback, param);
+end;
+
+procedure wkeWebView.SetOnWindowDestroy(callback: wkeWindowDestroyCallback; param: Pointer);
+begin
+  wkeOnWindowDestroy(Self, callback, param);
+end;
+
+procedure wkeWebView.ShowWindow(show: Boolean);
+begin
+  wkeShowWindow(Self, show);
+end;
+
+procedure wkeWebView.EnableWindow(enable: Boolean);
+begin
+  wkeEnableWindow(Self, enable);
+end;
+
+procedure wkeWebView.MoveWindow(x: Integer; y: Integer; width: Integer; height: Integer);
+begin
+  wkeMoveWindow(Self, x, y, width, height);
+end;
+
+procedure wkeWebView.MoveToCenter;
+begin
+  wkeMoveToCenter(Self);
+end;
+
+procedure wkeWebView.ResizeWindow(width: Integer; height: Integer);
+begin
+  wkeResizeWindow(Self, width, height);
+end;
+
+procedure wkeWebView.SetWindowTitle(const ATitle: string);
+begin
+{$IFDEF UNICODE}
+  wkeSetWindowTitleW(Self, PChar(ATitle));
+{$ELSE}
+  wkeSetWindowTitle(Self, PChar({$IFDEF FPC}ATitle{$ELSE}AnsiToUtf8(ATitle){$ENDIF}));
+{$ENDIF}
+end;
 
 { JScript }
 
 class procedure JScript.BindFunction(const AName: string; fn: jsNativeFunction; AArgCount: LongInt);
 begin
-  jsBindFunction(PAnsiChar(AnsiString({$IFDEF FPC}Utf8ToAnsi(AName){$ELSE}AName{$ENDIF})), fn, AArgCount);
+  if UseFastMB then
+  begin
+
+  end
+  else
+  begin
+    jsBindFunction(PAnsiChar(AnsiString({$IFDEF FPC}Utf8ToAnsi(AName){$ELSE}AName{$ENDIF})), fn, AArgCount);
+  end;
 end;
 
 class procedure JScript.BindGetter(const AName: string; fn: jsNativeFunction);

@@ -3,11 +3,12 @@ unit Langji.Wke.lib;
 interface
 
 uses
-  windows, sysutils,
-  Langji.Wke.types;
+  windows, sysutils, Langji.Miniblink.libs, Langji.Miniblink.types, Langji.Wke.types;
+
 
 // ================================wkeWebView============================
 var
+  UseFastMB: Boolean = False;
   wkeLibHandle: THandle = 0;
   wkeLibFileName: string = 'node.dll';
   wkePluginDir: string = '';
@@ -387,9 +388,15 @@ function WkeLoadLibAndInit: Boolean;
 begin
   result := false;
 
+  //Èç¹ûÊÇfastmb
+  if UseFastMB then
+  begin
+    result := mbUserInit;
+    Exit;
+  end;
+
   if wkeLibHandle = 0 then
   begin
-
     if LoadWkeLibaraly() then
     begin
       wkeInitialize;
@@ -402,6 +409,12 @@ end;
 
 procedure WkeFinalizeAndUnloadLib;
 begin
+  if UseFastMB then
+  begin
+    mbUserUninit;
+    exit;
+  end;
+
   if wkeLibHandle <> 0 then
   begin
     wkeFinalize;
