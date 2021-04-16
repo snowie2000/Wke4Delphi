@@ -192,9 +192,13 @@ type
     /// </summary>
     procedure LoadFile(const AFile: string);
     /// <summary>
-    ///   执行js 返回值 为执行成功与否
+    ///   执行js 返回值 js执行结果
     /// </summary>
     function ExecuteJavascript(const js: string): Variant;
+    /// <summary>
+    /// 执行js，无视结果
+    /// </summary>
+    procedure RunJs(const js: string);
 
     /// <summary>
     ///   执行js并得到string返回值
@@ -576,7 +580,7 @@ end;
 procedure Dombjscallback(webView: TmbWebView; param: Pointer; es: TmbJsExecState; v: TmbJsValue); stdcall;
 begin
   //TWkeWebBrowser(param).DoWebViewJsCallBack(TWkeWebBrowser(param), param, es, v);
-  if not g_mbCallTimeout then
+  if (not g_mbCallTimeout) and (param <> nil) then
     with pmbASyncJsCall(param)^ do
     begin
       begin
@@ -697,6 +701,10 @@ begin
 
       if FpopupEnabled then
         mbSetNavigationToNewWindowEnable(thewebview, true);
+
+      mbSetDragDropEnable(thewebview, FDragEnabled);
+      if not FDragEnabled then
+        RevokeDragDrop(GetWebHandle);
     end;
     exit;
   end;
@@ -943,7 +951,7 @@ begin
       end;
       g_mbCallTimeout := False;
       mbRunJs(thewebview, mbWebFrameGetMainFrame(thewebview), PAnsiChar(newjs), true, Dombjscallback, @asynccall, nil);
-      for x := 1 to 30 do
+      for x := 1 to 20 do
       begin
         Application.ProcessMessages;
         if WaitForSingleObject(asynccall.evt, 100) = WAIT_OBJECT_0 then
@@ -1130,7 +1138,7 @@ begin
   if Assigned(thewebview) then
   begin
     if UseFastMB then
-      result := FLocalUrl
+      result := mbGetUrl(thewebview)
     else
       result := wkeGetUrl(thewebview);
   end;
@@ -1310,11 +1318,14 @@ end;
 
 procedure TWkeWebBrowser.LoadUrl(const Aurl: string);
 begin
-
   if Assigned(thewebview) then
   begin
     if UseFastMB then
-      mbLoadURL(thewebview, PAnsiChar(AnsiString(UTF8Encode(Aurl))))
+    begin
+      mbLoadURL(thewebview, PAnsiChar(AnsiString(UTF8Encode(Aurl))));
+//      RunJs('window.location.href="' + Aurl + '";'); // mbLoadUrl存在不能加载的bug
+      MoveWindow(GetWebHandle, 0, 0, Width, Height, False);
+    end
     else
     begin
       thewebview.LoadURL(Aurl);
@@ -1390,6 +1401,28 @@ begin
       mbReload(thewebview)
     else
       thewebview.Reload;
+  end;
+end;
+
+procedure TWkeWebBrowser.RunJs(const js: string);
+var
+  newjs: AnsiString;
+  r: jsValue;
+  es: jsExecState;
+  x: Integer;
+begin
+  if UseFastMB then
+  begin
+    newjs := UTF8Encode('try { ' + js + ';} catch(err){ }');
+    if Assigned(thewebview) then
+      mbRunJs(thewebview, mbWebFrameGetMainFrame(thewebview), PAnsiChar(newjs), False, Dombjscallback, nil, nil);
+    exit;
+  end;
+
+  newjs := 'try { ' + js + '; return 1; } catch(err){ return 0;}';
+  if Assigned(thewebview) then
+  begin
+    r := thewebview.RunJS(newjs);
   end;
 end;
 
