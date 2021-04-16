@@ -361,9 +361,9 @@ function LoadWkeLibaraly(const wkeLibFilePath: string = ''): Boolean;
 
 procedure UnLoadWkeLibaraly();
 
-function WkeLoadLibAndInit: Boolean;
+function WkeLoadLibAndInit(mbInitCallback: TProc): Boolean;
 
-procedure WkeFinalizeAndUnloadLib;
+procedure WkeFinalizeAndUnloadLib;
 
 
 function WkeStringtoString(const s:wkeString):string;
@@ -384,26 +384,25 @@ asm
    {$ENDIF DEBUG}end;
 {$ENDIF UseVcFastCall}
 
-function WkeLoadLibAndInit: Boolean;
+function WkeLoadLibAndInit(mbInitCallback: TProc): Boolean;
 begin
   result := false;
+
+  if not LoadWkeLibaraly() then
+    Exit;
 
   //Èç¹ûÊÇfastmb
   if UseFastMB then
   begin
-    result := mbUserInit;
+    result := mbUserInit(mbInitCallback);
     Exit;
-  end;
-
-  if wkeLibHandle = 0 then
+  end
+  else
   begin
-    if LoadWkeLibaraly() then
-    begin
-      wkeInitialize;
-      if wkePluginDir <> '' then
-        wkeAddPluginDirectory(nil, PWideChar(WideString(wkePluginDir)));
-      result := true;
-    end;
+    wkeInitialize;
+    if wkePluginDir <> '' then
+      wkeAddPluginDirectory(nil, PWideChar(WideString(wkePluginDir)));
+    result := true;
   end;
 end;
 

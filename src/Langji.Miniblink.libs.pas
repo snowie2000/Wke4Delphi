@@ -11,7 +11,7 @@ unit Langji.Miniblink.libs;
 interface
 
 uses       // Dialogs,
-  windows, Classes, Langji.Miniblink.types;
+  windows, Classes, Langji.Miniblink.types, SysUtils;
 
 var
   mbLibFileName: string = 'mb.dll';
@@ -37,7 +37,7 @@ var
   mbCreateString: function(const pstr: PChar; len: Cardinal): TmbstringPtr; stdcall;
   mbDeleteString: procedure(const mbdelstr: TmbstringPtr); stdcall;
   mbSetProxy: procedure(webView: TmbWebView; const proxy: PmbProxy); stdcall;
-  mbNetSetMIMEType: procedure(jobPtr: TmbNetJob; const mtype: PChar); stdcall;
+  mbNetSetMIMEType: procedure(jobPtr: TmbNetJob; const mtype: PAnsiChar); stdcall;
   mbSetCookieJarFullPath: procedure(webView: TmbWebView; const path: PWideChar); stdcall;
   mbSetLocalStorageFullPath: procedure(webView: TmbWebView; const path: PWideChar); stdcall;
   mbGetZoomFactor: function(webView: TmbWebView): Real; stdcall;
@@ -128,22 +128,30 @@ var
   mbUtilBase64Decode: function(const pstr: PChar): PChar; stdcall;
   mbUtilPrintToPdf: procedure(webView: TmbWebView; frameid: TmbWebFrameHandle; const printparams: PmbprintSettings; callback: mbPrintPdfDataCallBack); stdcall;
   mbUtilPrintToBitmap: procedure(webView: TmbWebView; frameid: TmbWebFrameHandle; const printparams: PmbprintSettings; callback: mbPrintPdfDataCallBack); stdcall;
+  mbGetTitle: function(webWindow: TmbWebView): PAnsiChar; stdcall;
+  mbGetUrl: function(webWindow: TmbWebView): PAnsiChar; stdcall;
 
-  mbGetTitle : function(webWindow: TmbWebView): PAnsiChar; stdcall;
-
-  mbGetUrl : function(webWindow: TmbWebView): PAnsiChar; stdcall;
-
+//added by snowie
+  mbGetJsValueType: function(es: TmbJsExecState; v: TmbJsValue): mbJsType; stdcall;
+  mbNetHoldJobToAsynCommit: function(jobPtr: Pointer): BOOL; stdcall;
+  mbNetContinueJob: procedure(jobPtr: Pointer); stdcall;
+  mbNetCancelRequest: procedure(jobPtr: Pointer); stdcall;
+  mbNetSetHTTPHeaderField: procedure(jobPtr: Pointer; key, value: PWideChar; response: BOOL); stdcall;
+  mbSetContextMenuItemShow: procedure(webView: TmbWebView; item: mbMenuItemId; isShow: BOOL); stdcall;
 
 function LoadmbLibrary(const mbFile: string = 'mb.dll'): Boolean;
 
-function mbUserInit: boolean;
+function mbUserInit(engineInitCallBack: TProc): boolean;
 
 procedure mbUserUninit;
 
 implementation
 
 uses
-  Math, sysutils;
+  Math, afxCodeHook, Langji.Wke.lib, Langji.Wke.types;
+
+var
+  engineInit: TProc = nil;
 
 procedure AddPathEnvironment(const Apath: string);
 var
@@ -294,6 +302,16 @@ begin
   mbUtilBase64Decode := GetprocAddress(mbLibHandle, 'mbUtilBase64Decode');
   mbUtilPrintToPdf := GetprocAddress(mbLibHandle, 'mbUtilPrintToPdf');
   mbUtilPrintToBitmap := GetprocAddress(mbLibHandle, 'mbUtilPrintToBitmap');
+
+  //added by snowie
+  mbNetHoldJobToAsynCommit := GetprocAddress(mbLibHandle, 'mbNetHoldJobToAsynCommit');
+  mbNetContinueJob := GetprocAddress(mbLibHandle, 'mbNetContinueJob');
+  mbNetCancelRequest := GetprocAddress(mbLibHandle, 'mbNetCancelRequest');
+  mbNetSetHTTPHeaderField := GetprocAddress(mbLibHandle, 'mbNetSetHTTPHeaderField');
+  mbSetContextMenuItemShow := GetprocAddress(mbLibHandle, 'mbSetContextMenuItemShow');
+  mbSetProxy := GetprocAddress(mbLibHandle, 'mbSetProxy');
+  mbGetJsValueType := GetprocAddress(mbLibHandle, 'mbGetJsValueType');
+
   result := (mbLibHandle <> 0)
 end;
 
@@ -302,7 +320,19 @@ begin
   AddPathEnvironment(Adir);
 end;
 
-function mbUserInit: boolean;
+// hooking jsFunction to cut into the script thread
+var
+  oldJsFunction: function(es: jsExecState; obj: PjsData): jsValue; cdecl;
+
+function jsFunctionWrapper(es: jsExecState; obj: PjsData): jsValue; cdecl;
+begin
+  afxCodeHook.UnhookCode(@oldJsFunction);
+  Result := jsFunction(es, obj);
+  if Assigned(engineInit) then
+    engineInit();
+end;
+
+function mbUserInit(engineInitCallBack: TProc): boolean;
 var
   uset: TmbSettings;
 begin
@@ -311,6 +341,12 @@ begin
     exit;
   if LoadmbLibrary() then
   begin
+    if Assigned(engineInitCallBack) then
+    begin
+      engineInit := engineInitCallBack;
+    // hook jsFunction
+      afxCodeHook.HookCode(@jsFunction, @jsFunctionWrapper, @oldJsFunction);
+    end;
     uset.proxy := mbProxy;
     uset.mask := 0;   //MB_SETTING_PROXY
     uset.blinkThreadInitCallback := nil;

@@ -1004,7 +1004,10 @@ end;
 
 function wkeWebView.GlobalExec: jsExecState;
 begin
-  Result := wkeGlobalExec(Self);
+  if UseFastMB and (GetCurrentThreadId = MainThreadID) then
+    Result := nil
+  else
+    Result := wkeGlobalExec(Self);
 end;
 
 procedure wkeWebView.Sleep;
@@ -1187,11 +1190,11 @@ end;
 
 class procedure JScript.BindFunction(const AName: string; fn: jsNativeFunction; AArgCount: LongInt);
 begin
-  if UseFastMB then
+  {if UseFastMB and (GetCurrentThreadId = MainThreadID) then
   begin
 
   end
-  else
+  else}
   begin
     jsBindFunction(PAnsiChar(AnsiString({$IFDEF FPC}Utf8ToAnsi(AName){$ELSE}AName{$ENDIF})), fn, AArgCount);
   end;

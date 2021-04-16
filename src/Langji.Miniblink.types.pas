@@ -149,14 +149,6 @@ const
 //    //kMbJsTypeArray = 6,
 //    kMbJsTypeNull = 7,
 //} mbJsType;
-  kMbJsTypeNumber = 0;
-  kMbJsTypeString = 1;
-  kMbJsTypeBool = 2;
-   //kMbJsTypeObject = 3;
-   //kMbJsTypeFunction = 4;
-  kMbJsTypeUndefined = 5;
-   //kMbJsTypeArray = 6;
-  kMbJsTypeNull = 7;
 
 //typedef enum {
 //    mbLevelDebug = 4,
@@ -186,7 +178,32 @@ const
 
 type
 
+  // wkeMenuItemId
+  mbMenuItemId = (
+    kWkeMenuSelectedAllId = 1 shl 1,
+    kWkeMenuSelectedTextId = 1 shl 2,
+    kWkeMenuUndoId = 1 shl 3,
+    kWkeMenuCopyImageId = 1 shl 4,
+    kWkeMenuInspectElementAtId = 1 shl 5,
+    kWkeMenuCutId = 1 shl 6,
+    kWkeMenuPasteId = 1 shl 7,
+    kWkeMenuPrintId = 1 shl 8,
+    kWkeMenuGoForwardId = 1 shl 9,
+    kWkeMenuGoBackId = 1 shl 10,
+    kWkeMenuReloadId = 1 shl 11,
+    kWkeMenuSaveImageId = 1 shl 12
+  );
 
+  mbJsType = (
+    kMbJsTypeNumber = 0,
+    kMbJsTypeString = 1,
+    kMbJsTypeBool = 2,
+    //kMbJsTypeObject = 3,
+    //kMbJsTypeFunction = 4,
+    kMbJsTypeUndefined  = 5,
+    //kMbJsTypeArray = 6,
+    kMbJsTypeNull = 7
+  );
 
 
 
