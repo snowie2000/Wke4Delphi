@@ -339,7 +339,7 @@ type
   // typedef bool(*wkeDownloadCallback)(wkeWebView webView, void* param, const char* url);
   wkeDownloadCallback = function(webView: wkeWebView; param: Pointer; url: PAnsiChar): Boolean; cdecl; // wkeString): boolean;
 
-  wkeDownload2Callback = function(webView: wkeWebView; param: Pointer; expectedContentLength: Integer; const url, mime, disposition: PAnsiChar;
+  wkeDownload2Callback = function(webView: wkeWebView; param: Pointer; expectedContentLength: DWORD; const url, mime, disposition: PAnsiChar;
     job:wkeNetJob; dataBind: pwkeNetJobDataBind): wkeDownloadOpt; cdecl; // wkeString): boolean;
 
   wkeOnCallUiThread = procedure(webView: wkeWebView; paramOnInThread: Pointer); cdecl; // 2018.02.07

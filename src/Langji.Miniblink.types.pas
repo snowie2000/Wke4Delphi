@@ -205,6 +205,8 @@ type
     kMbJsTypeNull = 7
   );
 
+  mbDownloadOpt = (mbDownloadOptCancel, mbDownloadOptCacheData);
+
 
 
 //typedef struct {
@@ -697,7 +699,7 @@ type
 
   mbPrintingCallback = function(webView: TmbWebView; param: Pointer; step: TmbPrintintStep; hdc: HDC; const settings: TmbPrintintSettings; pagecount: Integer): Boolean; stdcall;
 
-  mbDownloadInBlinkThreadCallback = procedure(webView: TmbWebView; param: Pointer; expectedContentLength: DWORD; const url, mime, disposition: PChar; job: Tmbnetjob; databind: PmbNetJobDataBind); stdcall;
+  mbDownloadInBlinkThreadCallback = function(webView: TmbWebView; param: Pointer; expectedContentLength: DWORD; const url, mime, disposition: PAnsiChar; job: Tmbnetjob; databind: PmbNetJobDataBind): mbDownloadOpt; stdcall;
 
   mbRunJsCallback = procedure(webView: TmbWebView; param: Pointer; es: TmbJsExecState; v: TmbJsValue); stdcall;
 

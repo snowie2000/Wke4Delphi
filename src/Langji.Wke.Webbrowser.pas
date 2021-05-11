@@ -26,7 +26,8 @@ uses
   SysUtils, Classes, Controls, graphics, Forms,
 {$ENDIF}
   Messages, windows, Langji.Miniblink.libs, Langji.Miniblink.types,
-  Langji.Wke.types, Langji.Wke.IWebBrowser, Langji.Wke.lib, Generics.Collections;
+  Langji.Wke.types, Langji.Wke.IWebBrowser, Langji.Wke.lib, Generics.Collections,
+  superobject;
 
 type
   TWkeWebBrowser = class;
@@ -74,7 +75,6 @@ type
     thewebview: TwkeWebView;
     FwkeApp: TWkeApp;
     FDragEnabled: Boolean;
-    FCanBack, FCanForward: boolean;
     FLocalUrl, FLocalTitle: string; // 当前Url Title
     FpopupEnabled: boolean; // 允许弹窗
     FCookieEnabled: boolean;
@@ -94,7 +94,7 @@ type
     FOnUrlChange: TOnUrlChangeEvent;
     FOnCreateView: TOnCreateViewEvent;
     FOnDocumentReady: TNotifyEvent;
-    FOnWindowClosing: TNotifyEvent;
+    FOnWindowClosing: TCloseQueryEvent;
     FOnWindowDestroy: TNotifyEvent;
     FOnAlertBox: TOnAlertBoxEvent;
     FOnConfirmBox: TOnConfirmBoxEvent;
@@ -122,7 +122,7 @@ type
     function DoWebViewPromptBox(Sender: TObject; smsg, defaultres, Strres: string): boolean;
     procedure DoWebViewConsoleMessage(Sender: TObject; const AMessage, sourceName: string; sourceLine: Cardinal; const stackTrack: string);
     procedure DoWebViewDocumentReady(Sender: TObject);
-    procedure DoWebViewWindowClosing(Sender: TObject);
+    function DoWebViewWindowClosing(Sender: TObject): Boolean;
     procedure DoWebViewWindowDestroy(Sender: TObject);
     function DoWebViewDownloadFile(Sender: TObject; sUrl: string): boolean;
     function DoWebViewDownloadFile2(Sender: TObject; sUrl, sFileName: string; var Handler: IFileDownloader): Boolean;
@@ -182,6 +182,7 @@ type
     procedure GoForward;
     procedure Refresh;
     procedure Stop;
+    procedure FireJSEvent(eventName: string; options: ISuperObject = nil);
     procedure LoadUrl(const Aurl: string);
     /// <summary>
     ///   加载HTMLCODE
@@ -271,7 +272,7 @@ type
     property OnBeforeLoad: TOnBeforeLoadEvent read FOnLoadStart write FOnLoadStart;
     property OnLoadEnd: TOnLoadEndEvent read FOnLoadEnd write FOnLoadEnd;
     property OnCreateView: TOnCreateViewEvent read FOnCreateView write FOnCreateView;
-    property OnWindowClosing: TNotifyEvent read FOnWindowClosing write FOnWindowClosing;
+    property OnWindowClosing: TCloseQueryEvent read FOnWindowClosing write FOnWindowClosing;
     property OnWindowDestroy: TNotifyEvent read FOnWindowDestroy write FOnWindowDestroy;
     property OnDocumentReady: TNotifyEvent read FOnDocumentReady write FOnDocumentReady;
     property OnAlertBox: TOnAlertBoxEvent read FOnAlertBox write setOnAlertBox;
@@ -403,7 +404,7 @@ end;
 
 function DoWindowClosing(webWindow: wkeWebView; param: Pointer): boolean; cdecl;
 begin
-  TWkeWebBrowser(param).DoWebViewWindowClosing(TWkeWebBrowser(param));
+  result := TWkeWebBrowser(param).DoWebViewWindowClosing(TWkeWebBrowser(param));
 end;
 
 procedure DoWindowDestroy(webWindow: wkeWebView; param: Pointer); cdecl;
@@ -416,7 +417,7 @@ begin
   result := TWkeWebBrowser(param).DoWebViewDownloadFile(TWkeWebBrowser(param), StrPas(url)); // WkeStringtoString(url));
 end;
 
-function DodownloadFile2(webView: wkeWebView; param: Pointer; expectedContentLength: Integer; const url, mime, disposition: PAnsiChar; job: wkeNetJob; dataBind: pwkeNetJobDataBind): wkeDownloadOpt; cdecl; // url: wkeString): boolean; cdecl;
+function DodownloadFile2(webView: wkeWebView; param: Pointer; expectedContentLength: DWORD; const url, mime, disposition: PAnsiChar; job: wkeNetJob; dataBind: pwkeNetJobDataBind): wkeDownloadOpt; cdecl; // url: wkeString): boolean; cdecl;
 var
   handler: IFileDownloader; // buggy, don't use for now.
   mh: TMatch;
@@ -427,7 +428,7 @@ begin
   if disposition <> nil then
   begin
     sdisposition := UTF8Decode(disposition);
-    mh := TRegEx.Match(disposition, 'filename=(.+)');
+    mh := TRegEx.Match(sdisposition, 'filename=(.+)');
     if mh.Success then
       sfname := mh.Groups.Item[1].Value;
   end;
@@ -541,7 +542,7 @@ end;
 
 function DombClose(webView: TmbWebView; param: Pointer; unuse: Pointer): boolean; stdcall;
 begin
-  TWkeWebBrowser(param).DoWebViewWindowClosing(TWkeWebBrowser(param));
+  result := TWkeWebBrowser(param).DoWebViewWindowClosing(TWkeWebBrowser(param));
 end;
 
 function DombDestory(webView: TmbWebView; param: Pointer; unuse: Pointer): boolean; stdcall;
@@ -555,26 +556,66 @@ begin
 
 end;
 
-//function DombDownload(webView: TmbWebView; param: Pointer; const url: PAnsiChar): boolean; stdcall;
-//begin
-//  result := TWkeWebBrowser(param).DoWebViewDownloadFile(TWkeWebBrowser(param), UTF8Decode(StrPas(url)));
-//end;
-
-procedure DoMbThreadDownload(webView: TmbWebView; param: Pointer; expectedContentLength: DWORD; const url, mime, disposition: PChar; job: Tmbnetjob; databind: PmbNetJobDataBind); stdcall;
+function DoMbThreadDownload(webView: TmbWebView; param: Pointer; expectedContentLength: DWORD; const url, mime, disposition: PAnsiChar; job: Tmbnetjob; databind: PmbNetJobDataBind): mbDownloadOpt; stdcall;
 begin
-  TWkeWebBrowser(param).DoWebViewDownloadFile(TWkeWebBrowser(param), UTF8Decode(StrPas(url)));
+  // 不使用databind, 自己解决下载流程
+  Result := mbDownloadOpt(DodownloadFile2(webview, param, expectedContentLength, url, mime, disposition, job, nil));
 end;
 
-procedure DombGetCanBack(webView: TmbWebView; param: Pointer; state: TMbAsynRequestState; b: Boolean); stdcall;
+type
+  TGoBackForwardSyncEvent = record
+    e: THandle;
+    ret: Boolean;
+  end;
+  PGoBackForwardSyncEvent = ^TGoBackForwardSyncEvent;
+
+procedure DombGetCanBackForward(webView: TmbWebView; param: Pointer; state: TMbAsynRequestState; b: Boolean); stdcall;
 begin
-  if state = kMbAsynRequestStateOk then
-    TWkeWebBrowser(param).FCanBack := b;
+  with PGoBackForwardSyncEvent(param)^ do
+  begin
+    ret := False;
+    if state = kMbAsynRequestStateOk then
+      ret := b;
+    SetEvent(e);
+  end;
 end;
 
-procedure DombGetCanForward(webView: TmbWebView; param: Pointer; state: TMbAsynRequestState; b: Boolean); stdcall;
+function mbCanGoBackSync(thewebview: TmbWebView): Boolean;
+var
+  syncevent: TGoBackForwardSyncEvent;
 begin
-  if state = kMbAsynRequestStateOk then
-    TWkeWebBrowser(param).FCanForward := b;
+  syncevent.e := CreateEvent(nil, True, False, nil);
+  try
+    mbCanGoBack(thewebview, DombGetCanBackForward, @syncevent);
+    while not Application.Terminated do
+    begin
+      Application.ProcessMessages;
+      if WaitForSingleObject(syncevent.e, 50) = WAIT_OBJECT_0 then
+        Break;
+    end;
+    Result := syncevent.ret;
+  finally
+    CloseHandle(syncevent.e);
+  end;
+end;
+
+function mbCanGoForwardSync(thewebview: TmbWebView): Boolean;
+var
+  syncevent: TGoBackForwardSyncEvent;
+begin
+  syncevent.e := CreateEvent(nil, True, False, nil);
+  try
+    mbCanGoForward(thewebview, DombGetCanBackForward, @syncevent);
+    while not Application.Terminated do
+    begin
+      Application.ProcessMessages;
+      if WaitForSingleObject(syncevent.e, 50) = WAIT_OBJECT_0 then
+        Break;
+    end;
+    Result := syncevent.ret;
+  finally
+    CloseHandle(syncevent.e);
+  end;
 end;
 
 procedure Dombjscallback(webView: TmbWebView; param: Pointer; es: TmbJsExecState; v: TmbJsValue); stdcall;
@@ -688,8 +729,6 @@ begin
       mbOnJsQuery(thewebview, DombJsBindCallback, self);
       mbOnDownloadInBlinkThread(thewebview, DoMbThreadDownload, Self);
 
-      mbCanGoBack(thewebview, DombGetCanBack, self);
-      mbCanGoForward(thewebview, DombGetCanForward, self);
       mbOnLoadUrlBegin(thewebview, DombOnLoadUrlBegin, Self);
       if FUserAgent <> '' then
         mbSetUserAgent(thewebview, PAnsiChar(AnsiString(FUserAgent)));
@@ -701,6 +740,8 @@ begin
 
       if FpopupEnabled then
         mbSetNavigationToNewWindowEnable(thewebview, true);
+
+      //wkeSetDebugConfig(thewebview, 'showDevTools', PAnsiChar(AnsiToUtf8(ExtractFilePath(ParamStr(0)) + '\front_end\inspector.html')));
 
       mbSetDragDropEnable(thewebview, FDragEnabled);
       if not FDragEnabled then
@@ -917,10 +958,11 @@ begin
     FOnUrlChange(self, sUrl);
 end;
 
-procedure TWkeWebBrowser.DoWebViewWindowClosing(Sender: TObject);
+function TWkeWebBrowser.DoWebViewWindowClosing(Sender: TObject): Boolean;
 begin
+  result := True;
   if Assigned(FOnWindowClosing) then
-    FOnWindowClosing(self);
+    FOnWindowClosing(self, result);
 end;
 
 procedure TWkeWebBrowser.DoWebViewWindowDestroy(Sender: TObject);
@@ -941,7 +983,7 @@ begin
   if UseFastMB then
   begin
     result := false;
-    newjs := UTF8Encode('try { ' + js + '; return; } catch(err){ return 0;}');
+    newjs := UTF8Encode('try { ' + js + '; return 1; } catch(err){ return 0;}');
     if Assigned(thewebview) then
     begin
       FillChar(asynccall, sizeof(asynccall), 0);
@@ -977,6 +1019,21 @@ begin
         result := true;
     end;
   end;
+end;
+
+procedure TWkeWebBrowser.FireJSEvent(eventName: string; options: ISuperObject);
+var
+  json: ISuperObject;
+begin
+  if Assigned(thewebview) then
+    if options = nil then
+      RunJs(Format('window.dispatchEvent(new Event("%s"));', [eventName]))
+    else
+    begin
+      json := SO();
+      json.O['detail'] := options;
+      RunJs(Format('window.dispatchEvent(new CustomEvent("%s", %s));', [eventName, json.AsJson()]));
+    end;
 end;
 
 function TWkeWebBrowser.GetJsTextResult(const js: string): string;
@@ -1039,11 +1096,10 @@ end;
 
 function TWkeWebBrowser.GetCanBack: boolean;
 begin
-
   if Assigned(thewebview) then
   begin
     if UseFastMB then
-      result := FCanBack
+      result := mbCanGoBackSync(thewebview)
     else
       result := thewebview.CanGoBack;
   end;
@@ -1055,7 +1111,7 @@ begin
   if Assigned(thewebview) then
   begin
     if UseFastMB then
-      result := FCanForward
+      result := mbCanGoForwardSync(thewebview)
     else
       result := thewebview.CanGoForward;
   end;
@@ -1244,8 +1300,7 @@ begin
   begin
     if UseFastMB then
     begin
-      if FCanBack then
-        mbGoBack(thewebview);
+      mbGoBack(thewebview);
     end
     else
     begin
@@ -1261,8 +1316,7 @@ begin
   begin
     if UseFastMB then
     begin
-      if FCanForward then
-        mbGoForward(thewebview);
+      mbGoForward(thewebview);
     end
     else
     begin
@@ -1309,7 +1363,7 @@ begin
   if Assigned(thewebview) then
   begin
     if UseFastMB then
-      mbLoadHtmlWithBaseUrl(thewebview, PAnsiChar(AnsiString(Astr)), 'about:blank')
+      mbLoadHtmlWithBaseUrl(thewebview, PAnsiChar(UTF8String(Astr)), 'about:blank')
     else
       thewebview.LoadHTML(Astr);
   end;

@@ -27,6 +27,7 @@ var
 
   mbInit: procedure(settings: PmbSettings); stdcall;
   mbUninit: procedure(); stdcall;
+  mbEnableHighDPISupport: procedure(); stdcall;
   mbCreateWebView: function(): TmbWebView; stdcall;
   mbDestroyWebView: procedure(webview: TmbWebView); stdcall;
   mbCreateWebWindow: function(mbtype: TmbWindowType; parent: HWND; x: Integer; y: Integer; width: Integer; height: Integer): TmbWebView; stdcall;
@@ -139,7 +140,7 @@ var
   mbNetSetHTTPHeaderField: procedure(jobPtr: Pointer; key, value: PWideChar; response: BOOL); stdcall;
   mbSetContextMenuItemShow: procedure(webView: TmbWebView; item: mbMenuItemId; isShow: BOOL); stdcall;
 
-function LoadmbLibrary(const mbFile: string = 'mb.dll'): Boolean;
+function LoadmbLibrary(const mbFile: string = ''): Boolean;
 
 function mbUserInit(engineInitCallBack: TProc): boolean;
 
@@ -196,6 +197,7 @@ begin
 
   mbInit := GetprocAddress(mbLibHandle, 'mbInit');
   mbUninit := GetprocAddress(mbLibHandle, 'mbUninit');
+  mbEnableHighDPISupport := GetProcAddress(mbLibHandle, 'mbEnableHighDPISupport');
   mbCreateWebView := GetprocAddress(mbLibHandle, 'mbCreateWebView');
   mbDestroyWebView := GetprocAddress(mbLibHandle, 'mbDestroyWebView');
   mbCreateWebWindow := GetprocAddress(mbLibHandle, 'mbCreateWebWindow');
