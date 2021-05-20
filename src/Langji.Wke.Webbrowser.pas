@@ -71,7 +71,7 @@ type
   TWkeWebBrowser = class(TWinControl)
   private
     FwkeWndProc: TWindowProcPtr;
-    FwkeLastHandle: THandle;
+    FLastWebHandle: THandle;
     thewebview: TwkeWebView;
     FwkeApp: TWkeApp;
     FDragEnabled: Boolean;
@@ -107,6 +107,8 @@ type
     FOnLoadUrlBegin: TOnLoadUrlBeginEvent;
     FOnLoadUrlFail: TOnLoadUrlFailEvent;
     FOnmbBindFunction: TOnmbJsBindFunction;
+    class var
+      FWebviewDict: TDictionary<THandle, TWkeWebBrowser>;
     function GetZoom: Integer;
     procedure SetZoom(const Value: Integer);
 
@@ -174,6 +176,7 @@ type
     class procedure NetSetMIMEType(jobPtr: TmbNetJob; const mtype: PAnsiChar);
     class procedure NetSetData(jobPtr: Pointer; buf: Pointer; len: Integer);
   public
+    class function GetInstanceFromHandle(h: THandle): TWkeWebBrowser;
     { Public declarations }
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -300,9 +303,6 @@ type
   end;
 
   pmbASyncJsCall = ^mbASyncJsCall;
-
-var
-  g_WndProcBook: TDictionary<THandle, TWkeWebBrowser>;
 
 {procedure wkeWindowProc(hwnd: THandle; uMsg: Cardinal; wParam: WPARAM; lParam: LPARAM); stdcall;
 begin
@@ -548,7 +548,7 @@ end;
 function DombDestory(webView: TmbWebView; param: Pointer; unuse: Pointer): boolean; stdcall;
 begin
   result := false;
- // TWkeWebBrowser(param).DoWebViewWindowDestroy(TWkeWebBrowser(param));
+  TWkeWebBrowser(param).DoWebViewWindowDestroy(TWkeWebBrowser(param));
 end;
 
 function DombPrint(webView: TmbWebView; param: Pointer; step: TmbPrintintStep; hdc: hdc; const settings: TmbPrintintSettings; pagecount: Integer): Boolean; stdcall;
@@ -559,7 +559,7 @@ end;
 function DoMbThreadDownload(webView: TmbWebView; param: Pointer; expectedContentLength: DWORD; const url, mime, disposition: PAnsiChar; job: Tmbnetjob; databind: PmbNetJobDataBind): mbDownloadOpt; stdcall;
 begin
   // 不使用databind, 自己解决下载流程
-  Result := mbDownloadOpt(DodownloadFile2(webview, param, expectedContentLength, url, mime, disposition, job, nil));
+  result := mbDownloadOpt(DodownloadFile2(webView, param, expectedContentLength, url, mime, disposition, job, nil));
 end;
 
 type
@@ -567,6 +567,7 @@ type
     e: THandle;
     ret: Boolean;
   end;
+
   PGoBackForwardSyncEvent = ^TGoBackForwardSyncEvent;
 
 procedure DombGetCanBackForward(webView: TmbWebView; param: Pointer; state: TMbAsynRequestState; b: Boolean); stdcall;
@@ -593,7 +594,7 @@ begin
       if WaitForSingleObject(syncevent.e, 50) = WAIT_OBJECT_0 then
         Break;
     end;
-    Result := syncevent.ret;
+    result := syncevent.ret;
   finally
     CloseHandle(syncevent.e);
   end;
@@ -612,7 +613,7 @@ begin
       if WaitForSingleObject(syncevent.e, 50) = WAIT_OBJECT_0 then
         Break;
     end;
-    Result := syncevent.ret;
+    result := syncevent.ret;
   finally
     CloseHandle(syncevent.e);
   end;
@@ -679,7 +680,6 @@ end;
 
 destructor TWkeWebBrowser.Destroy;
 begin
-//  LoadHtml('<html/>');
   inherited;
 end;
 
@@ -702,6 +702,11 @@ begin
     thewebview := mbCreateWebWindow(MB_WINDOW_TYPE_CONTROL, handle, 0, 0, Width, height);
     if Assigned(thewebview) then
     begin
+      FLastWebHandle := mbGetHostHWND(thewebview);
+      if FLastWebHandle <> 0 then
+        FWebviewDict.Add(FLastWebHandle, Self);
+      mbSetDebugConfig(thewebview, 'wakeMinInterval', '1');
+      mbSetDebugConfig(thewebview, 'drawMinInterval', '1');
       mbShowWindow(thewebview, true);
       SetWindowLong(mbGetHostHWND(thewebview), GWL_STYLE, GetWindowLong(mbGetHostHWND(thewebview), GWL_STYLE) or WS_CHILD or WS_TABSTOP or WS_CLIPCHILDREN or WS_CLIPSIBLINGS);
 
@@ -754,6 +759,11 @@ begin
 
   if Assigned(thewebview) then
   begin
+    FLastWebHandle := wkeGetWindowHandle(thewebview);
+    if FLastWebHandle <> 0 then
+      FWebviewDict.Add(FLastWebHandle, Self);
+    wkeSetDebugConfig(thewebview, 'wakeMinInterval', '1');
+    wkeSetDebugConfig(thewebview, 'drawMinInterval', '1');
     ShowWindow(thewebview.WindowHandle, SW_NORMAL);
     SetWindowLong(thewebview.WindowHandle, GWL_STYLE, GetWindowLong(thewebview.WindowHandle, GWL_STYLE) or WS_CHILD or WS_TABSTOP or WS_CLIPCHILDREN or WS_CLIPSIBLINGS);
 
@@ -966,10 +976,21 @@ begin
 end;
 
 procedure TWkeWebBrowser.DoWebViewWindowDestroy(Sender: TObject);
+var
+  h: THandle;
 begin
+  if Assigned(thewebview) then
+  begin
+    h := GetWebHandle();
+    if h <> 0 then
+      FWebviewDict.Remove(h)
+    else
+      FWebviewDict.Remove(FLastWebHandle);
+    FLastWebHandle := 0;
+  end;
+
   if Assigned(FOnWindowDestroy) then
     FOnWindowDestroy(self);
-  g_WndProcBook.Remove(FwkeLastHandle);
 end;
 
 function TWkeWebBrowser.ExecuteJavascript(const js: string): Variant; // 执行js
@@ -1064,6 +1085,13 @@ begin
     if es.IsString(r) then
       result := es.ToTempString(r);
   end;
+end;
+
+class function TWkeWebBrowser.GetInstanceFromHandle(h: THandle): TWkeWebBrowser;
+begin
+  result := nil;
+  if FWebviewDict.ContainsKey(h) then
+    result := FWebviewDict[h];
 end;
 
 function TWkeWebBrowser.GetJsBoolResult(const js: string): boolean;
@@ -1707,7 +1735,7 @@ begin
     WM_SETFOCUS:
       begin
         hndl := GetWindow(handle, GW_CHILD);
-        if hndl <> 0 then
+        if (hndl <> 0) and (IsWindowVisible(handle)) then
           PostMessage(hndl, WM_SETFOCUS, msg.WParam, 0);
         inherited WndProc(msg);
       end;
@@ -1864,10 +1892,10 @@ begin
 end;
 
 initialization
-  g_WndProcBook := TDictionary<THandle, TWkeWebBrowser>.Create;
+  TWkeWebBrowser.FWebviewDict := TDictionary<THandle, TWkeWebBrowser>.Create;
 
 finalization
-  g_WndProcBook.Free;
+  TWkeWebBrowser.FWebviewDict.Free;
 
 end.
 
