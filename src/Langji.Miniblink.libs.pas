@@ -38,6 +38,7 @@ var
   mbCreateString: function(const pstr: PChar; len: Cardinal): TmbstringPtr; stdcall;
   mbDeleteString: procedure(const mbdelstr: TmbstringPtr); stdcall;
   mbSetProxy: procedure(webView: TmbWebView; const proxy: PmbProxy); stdcall;
+  mbSetViewProxy: procedure(webView: TmbWebView; const proxy: PmbProxy); stdcall;
   mbNetSetMIMEType: procedure(jobPtr: TmbNetJob; const mtype: PAnsiChar); stdcall;
   mbSetCookieJarFullPath: procedure(webView: TmbWebView; const path: PWideChar); stdcall;
   mbSetLocalStorageFullPath: procedure(webView: TmbWebView; const path: PWideChar); stdcall;
@@ -312,6 +313,7 @@ begin
   mbNetSetHTTPHeaderField := GetprocAddress(mbLibHandle, 'mbNetSetHTTPHeaderField');
   mbSetContextMenuItemShow := GetprocAddress(mbLibHandle, 'mbSetContextMenuItemShow');
   mbSetProxy := GetprocAddress(mbLibHandle, 'mbSetProxy');
+  mbSetViewProxy := GetprocAddress(mbLibHandle, 'mbSetViewProxy');
   mbGetJsValueType := GetprocAddress(mbLibHandle, 'mbGetJsValueType');
 
   result := (mbLibHandle <> 0)

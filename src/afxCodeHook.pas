@@ -283,7 +283,7 @@ end;
 
 function InjectString(Process: LongWord; Text: pchar): pchar;
 var
-  BytesWritten: longword;
+  BytesWritten: Cardinal;
 begin
   Result := VirtualAllocEx(Process, nil, Length(Text) + 1, MEM_COMMIT or MEM_RESERVE, PAGE_EXECUTE_READWRITE);
   WriteProcessMemory(Process, Result, Text, Length(Text) + 1, BytesWritten);
@@ -291,7 +291,7 @@ end;
 
 function InjectMemory(Process: LongWord; Memory: pointer; Len: longword): pointer;
 var
-  BytesWritten: longword;
+  BytesWritten: Cardinal;
 begin
   Result := VirtualAllocEx(Process, nil, Len, MEM_COMMIT or MEM_RESERVE, PAGE_EXECUTE_READWRITE);
   WriteProcessMemory(Process, Result, Memory, Len, BytesWritten);
@@ -300,7 +300,8 @@ end;
 function InjectThread(Process: longword; Thread: pointer; Info: pointer; InfoLen: longword; Results: boolean): THandle;
 var
   pThread, pInfo: pointer;
-  BytesRead, TID: longword;
+  BytesRead: Cardinal;
+  TID: Cardinal;
 begin
   pInfo := InjectMemory(Process, Info, InfoLen);
   pThread := InjectMemory(Process, Thread, SizeOfProc(Thread));
@@ -359,7 +360,7 @@ type
 var
   Lib: TLibInfo;
   DllLoadInfo: TDllLoadInfo;
-  BytesWritten: longword;
+  BytesWritten: Cardinal;
   ImageNtHeaders: PImageNtHeaders;
   pModule: pointer;
   Offset: longword;

@@ -21,13 +21,12 @@ interface
 uses
 {$IFDEF DELPHI16_UP}
   System.SysUtils, System.Classes, Vcl.Controls, Vcl.graphics, Vcl.Forms,
-  System.Generics.Collections,
+  System.Generics.Collections, WinAPI.Messages, Winapi.Windows,
 {$ELSE}
-  SysUtils, Classes, Controls, graphics, Forms,
+  SysUtils, Classes, Controls, graphics, Forms, Messages, windows,
 {$ENDIF}
-  Messages, windows, Langji.Miniblink.libs, Langji.Miniblink.types,
-  Langji.Wke.types, Langji.Wke.IWebBrowser, Langji.Wke.lib, Generics.Collections,
-  superobject;
+  Langji.Miniblink.libs, Langji.Miniblink.types, Langji.Wke.types,
+  Langji.Wke.IWebBrowser, Langji.Wke.lib, Generics.Collections, superobject;
 
 type
   TWkeWebBrowser = class;
@@ -109,6 +108,10 @@ type
     FOnmbBindFunction: TOnmbJsBindFunction;
     class var
       FWebviewDict: TDictionary<THandle, TWkeWebBrowser>;
+    class var
+      FDefCookiePath, FDefLocalStoragePath: string;
+    class var
+      FDPIAware: boolean;
     function GetZoom: Integer;
     procedure SetZoom(const Value: Integer);
 
@@ -122,7 +125,8 @@ type
     procedure DoWebViewAlertBox(Sender: TObject; smsg: string);
     function DoWebViewConfirmBox(Sender: TObject; smsg: string): boolean;
     function DoWebViewPromptBox(Sender: TObject; smsg, defaultres, Strres: string): boolean;
-    procedure DoWebViewConsoleMessage(Sender: TObject; const AMessage, sourceName: string; sourceLine: Cardinal; const stackTrack: string);
+    procedure DoWebViewConsoleMessage(Sender: TObject; const AMessage, sourceName:
+        string; sourceLine: Cardinal; const stackTrack: string; const consoleLevel: Integer);
     procedure DoWebViewDocumentReady(Sender: TObject);
     function DoWebViewWindowClosing(Sender: TObject): Boolean;
     procedure DoWebViewWindowDestroy(Sender: TObject);
@@ -168,13 +172,17 @@ type
     property SimulatePlatform: TwkePlatform read FPlatform write setPlatform;
   public
     // 一些webview-dependent的方法，定义在这里的目的是为了方法mb和wke通用
-    class procedure SetProxy(const Value: TwkeProxy);
+    class procedure SetProxy(const Value: TwkeProxy; webview: TmbWebview = nil);
     class function NetHoldJobToAsynCommit(jobPtr: Pointer): BOOL;
     class procedure NetContinueJob(jobPtr: Pointer);
     class procedure NetCancelRequest(jobPtr: Pointer);
     class procedure NetSetHTTPHeaderField(jobPtr: Pointer; key, value: PWideChar; response: BOOL);
     class procedure NetSetMIMEType(jobPtr: TmbNetJob; const mtype: PAnsiChar);
     class procedure NetSetData(jobPtr: Pointer; buf: Pointer; len: Integer);
+    // 一些默认值的设定
+    class procedure SetDefaultCookiePath(const Value: string);
+    class procedure SetDefaultLocalStoragePath(const Value: string);
+    class procedure SetDPIAWare(const Value: boolean);
   public
     class function GetInstanceFromHandle(h: THandle): TWkeWebBrowser;
     { Public declarations }
@@ -185,6 +193,7 @@ type
     procedure GoForward;
     procedure Refresh;
     procedure Stop;
+    procedure Wake;
     procedure FireJSEvent(eventName: string; options: ISuperObject = nil);
     procedure LoadUrl(const Aurl: string);
     /// <summary>
@@ -249,7 +258,6 @@ type
     property WebViewHandle: Hwnd read GetWebHandle;
     property isMain: boolean read FIsmain;
     property IsDocumentReady: boolean read getDocumentReady;
-    property Proxy: TwkeProxy write SetProxy;
     property ZoomPercent: Integer read GetZoom write SetZoom;
     property Headless: boolean write SetHeadless;
     property TouchEnabled: boolean write SetTouchEnabled;
@@ -394,7 +402,7 @@ end;
 
 procedure DoConsoleMessage(webView: wkeWebView; param: Pointer; level: wkeMessageLevel; const AMessage, sourceName: wkeString; sourceLine: Cardinal; const stackTrack: wkeString); cdecl;
 begin
-  TWkeWebBrowser(param).DoWebViewConsoleMessage(TWkeWebBrowser(param), wkeWebView.GetString(AMessage), wkeWebView.GetString(sourceName), sourceLine, wkeWebView.GetString(stackTrack));
+  TWkeWebBrowser(param).DoWebViewConsoleMessage(TWkeWebBrowser(param), wkeWebView.GetString(AMessage), wkeWebView.GetString(sourceName), sourceLine, wkeWebView.GetString(stackTrack), Ord(level));
 end;
 
 procedure DocumentReady(webView: wkeWebView; param: Pointer); cdecl;
@@ -537,7 +545,7 @@ end;
 
 procedure DombConsole(webView: TmbWebView; param: Pointer; level: TmbConsoleLevel; const smessage: PAnsiChar; const sourceName: PAnsiChar; sourceLine: Cardinal; const stackTrace: PAnsiChar); stdcall;
 begin
-  TWkeWebBrowser(param).DoWebViewConsoleMessage(TWkeWebBrowser(param), UTF8Decode(strpas(smessage)), UTF8Decode(strpas(sourceName)), sourceLine, UTF8Decode(strpas(stackTrace)));
+  TWkeWebBrowser(param).DoWebViewConsoleMessage(TWkeWebBrowser(param), UTF8Decode(strpas(smessage)), UTF8Decode(strpas(sourceName)), sourceLine, UTF8Decode(strpas(stackTrace)), level);
 end;
 
 function DombClose(webView: TmbWebView; param: Pointer; unuse: Pointer): boolean; stdcall;
@@ -667,14 +675,15 @@ begin
   inherited;
   Color := clwhite;
   FZoomValue := 100;
+  FDPIAware := False;
   FCookieEnabled := true;
   FpopupEnabled := true;
   FUserAgent := 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.1650.63 Safari/537.36';
   FPlatform := wp_Win32;
   FLocalUrl := '';
   FLocalTitle := '';
-  FLocalStorage := '';
-  FCookiePath := '';
+  FLocalStorage := FDefLocalStoragePath;
+  FCookiePath := FDefCookiePath;
   thewebview := nil;
 end;
 
@@ -705,9 +714,10 @@ begin
       FLastWebHandle := mbGetHostHWND(thewebview);
       if FLastWebHandle <> 0 then
         FWebviewDict.Add(FLastWebHandle, Self);
-      mbSetDebugConfig(thewebview, 'wakeMinInterval', '1');
-      mbSetDebugConfig(thewebview, 'drawMinInterval', '1');
       mbShowWindow(thewebview, true);
+      mbSetDebugConfig(thewebview, 'wakeMinInterval', '0');
+      mbSetDebugConfig(thewebview, 'drawMinInterval', '0');
+      mbSetDebugConfig(thewebview, 'antiAlias', '0');
       SetWindowLong(mbGetHostHWND(thewebview), GWL_STYLE, GetWindowLong(mbGetHostHWND(thewebview), GWL_STYLE) or WS_CHILD or WS_TABSTOP or WS_CLIPCHILDREN or WS_CLIPSIBLINGS);
 
       mbResize(thewebview, Width, Height);
@@ -751,6 +761,8 @@ begin
       mbSetDragDropEnable(thewebview, FDragEnabled);
       if not FDragEnabled then
         RevokeDragDrop(GetWebHandle);
+      if FDPIAware then
+        mbEnableHighDPISupport();
     end;
     exit;
   end;
@@ -762,8 +774,6 @@ begin
     FLastWebHandle := wkeGetWindowHandle(thewebview);
     if FLastWebHandle <> 0 then
       FWebviewDict.Add(FLastWebHandle, Self);
-    wkeSetDebugConfig(thewebview, 'wakeMinInterval', '1');
-    wkeSetDebugConfig(thewebview, 'drawMinInterval', '1');
     ShowWindow(thewebview.WindowHandle, SW_NORMAL);
     SetWindowLong(thewebview.WindowHandle, GWL_STYLE, GetWindowLong(thewebview.WindowHandle, GWL_STYLE) or WS_CHILD or WS_TABSTOP or WS_CLIPCHILDREN or WS_CLIPSIBLINGS);
 
@@ -816,6 +826,8 @@ begin
     wkeSetDragEnable(thewebview, FDragEnabled);
     if not FDragEnabled then
       RevokeDragDrop(GetWebHandle);
+    if FDPIAware then
+      wkeEnableHighDPISupport();
   end;
 end;
 
@@ -838,11 +850,10 @@ begin
     FOnConfirmBox(self, smsg, result);
 end;
 
-procedure TWkeWebBrowser.DoWebViewConsoleMessage(Sender: TObject; const AMessage, sourceName: string; sourceLine: Cardinal; const stackTrack: string);
+procedure TWkeWebBrowser.DoWebViewConsoleMessage(Sender: TObject; const AMessage, sourceName: string; sourceLine: Cardinal; const stackTrack: string; const consoleLevel: Integer);
 begin
   if Assigned(FOnConsoleMessage) then
-    FOnConsoleMessage(self, AMessage, sourceName, sourceLine);
-
+    FOnConsoleMessage(self, AMessage, sourceName, sourceLine, stackTrack, consoleLevel);
 end;
 
 procedure TWkeWebBrowser.DoWebViewCreateView(Sender: TObject; sUrl: string; navigationType: wkeNavigationType; windowFeatures: PwkeWindowFeatures; var wvw: Pointer);
@@ -1312,9 +1323,9 @@ begin
   if Assigned(thewebview) then
   begin
     if UseFastMB then
-      result := Trunc(power(1.2, mbGetZoomFactor(thewebview)) * 100)
+      result := Trunc(mbGetZoomFactor(thewebview) * 100)
     else
-      result := Trunc(power(1.2, thewebview.ZoomFactor) * 100)
+      result := Trunc(thewebview.ZoomFactor * 100)
   end
   else
     result := 100;
@@ -1542,8 +1553,31 @@ begin
   end;
 end;
 
+class procedure TWkeWebBrowser.SetDefaultCookiePath(const Value: string);
+begin
+  FDefCookiePath := Value;
+end;
+
+class procedure TWkeWebBrowser.SetDefaultLocalStoragePath(const Value: string);
+begin
+  FDefLocalStoragePath := Value;
+end;
+
+class procedure TWkeWebBrowser.SetDPIAware(const Value: boolean);
+begin
+  FDPIAware := Value;
+  if Value and (Assigned(wkeEnableHighDPISupport)) then
+  begin
+    if UseFastMB then
+      mbEnableHighDPISupport()
+    else
+      wkeEnableHighDPISupport();
+  end
+end;
+
 procedure TWkeWebBrowser.SetDragEnabled(const Value: boolean);
 begin
+  // don't use! buggy!
   FDragEnabled := Value;
   if Assigned(thewebview) then
   begin
@@ -1639,7 +1673,7 @@ begin
   end;
 end;
 
-class procedure TWkeWebBrowser.SetProxy(const Value: TwkeProxy);
+class procedure TWkeWebBrowser.SetProxy(const Value: TwkeProxy; webview: TmbWebview = nil);
 var
   xproxy: TmbProxy;
   shost: ansistring;
@@ -1660,7 +1694,10 @@ begin
         shost := Value.password;
         StrPCopy(password, shost);
       end;
-      mbSetProxy({thewebview} nil, @xproxy)
+      if webview = nil then
+        mbSetProxy({thewebview} nil, @xproxy)
+      else
+        mbSetViewProxy(webview, @xproxy);
     end
     else
       wkeSetproxy(@Value);
@@ -1678,7 +1715,6 @@ begin
     else
       wkeSetDebugConfig(thewebview, 'showDevTools', PAnsiChar(AnsiToUtf8(ExtractFilePath(ParamStr(0)) + '\front_end\inspector.html')));
   end;
-
 end;
 
 procedure TWkeWebBrowser.SetZoom(const Value: Integer);
@@ -1686,9 +1722,9 @@ begin
   if Assigned(thewebview) then
   begin
     if UseFastMB then
-      mbSetZoomFactor(thewebview, LogN(1.2, Value / 100))
+      mbSetZoomFactor(thewebview, Value / 100)
     else
-      thewebview.ZoomFactor := LogN(1.2, Value / 100);
+      thewebview.ZoomFactor := Value / 100;
   end;
 end;
 
@@ -1702,6 +1738,12 @@ begin
       thewebview.StopLoading;
   end;
 
+end;
+
+procedure TWkeWebBrowser.Wake;
+begin
+  if Assigned(thewebview) and UseFastMB then
+    mbWake(thewebview);
 end;
 
 procedure TWkeWebBrowser.WM_SIZE(var msg: TMessage);
@@ -1893,6 +1935,7 @@ end;
 
 initialization
   TWkeWebBrowser.FWebviewDict := TDictionary<THandle, TWkeWebBrowser>.Create;
+
 
 finalization
   TWkeWebBrowser.FWebviewDict.Free;

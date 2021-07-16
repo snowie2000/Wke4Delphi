@@ -242,6 +242,7 @@ var
   wkeNetSetHTTPHeaderField: procedure(jobPtr: Pointer; key, value: PWideChar; response: BOOL); cdecl;
   wkeSetContextMenuItemShow: procedure(webView: wkeWebView; item: wkeMenuItemId; isShow: BOOL); cdecl;
   wkeOnLoadUrlFail: procedure(webView: wkeWebView; callback: wkeLoadUrlFailCallback; callbackParam: Pointer); cdecl;
+  wkeEnableHighDPISupport: procedure(); cdecl;
 
 
 
@@ -611,6 +612,7 @@ begin
     'wkeNetSetHTTPHeaderField');
   wkeSetContextMenuItemShow := GetProcAddress(wkeLibHandle,
     'wkeSetContextMenuItemShow');
+  wkeEnableHighDPISupport := GetProcAddress(wkeLibHandle, 'wkeEnableHighDPISupport');
   jsBindFunction := GetProcAddress(wkeLibHandle, 'jsBindFunction');
   jsBindGetter := GetProcAddress(wkeLibHandle, 'jsBindGetter');
   jsBindSetter := GetProcAddress(wkeLibHandle, 'jsBindSetter');

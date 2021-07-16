@@ -421,7 +421,7 @@ type
 
   TOnDownload2Event = procedure(Sender: TObject; sUrl: string; sFileName: string; var Handler: IFileDownloader) of object;
 
-  TOnConsoleMessgeEvent = procedure(Sender: TObject; const sMsg, source: string; const sline: Integer) of object;
+  TOnConsoleMessgeEvent = procedure(Sender: TObject; const sMsg, source: string; const sline: Integer; const stackTrack: string; const consoleLevel: Integer) of object;
 
   TOnLoadUrlEndEvent = procedure(Sender: TObject; sUrl: string; job, buf: Pointer; len: Integer) of object;
 

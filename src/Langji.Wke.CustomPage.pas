@@ -62,8 +62,9 @@ type
     procedure DoWebViewAlertBox(Sender: TObject; smsg: string);
     function DoWebViewConfirmBox(Sender: TObject; smsg: string): boolean;
     function DoWebViewPromptBox(Sender: TObject; smsg, defaultres, Strres: string): boolean;
-    procedure DoWebViewConsoleMessage(Sender: TObject; const AMessage, sourceName: string; sourceLine: Cardinal; const
-      stackTrack: string);
+    procedure DoWebViewConsoleMessage(Sender: TObject; const AMessage, sourceName:
+        string; sourceLine: Cardinal; const stackTrack: string; const consoleLevel:
+        Integer);
     procedure DoWebViewDocumentReady(Sender: TObject);
     procedure DoWebViewWindowClosing(Sender: TObject);
     procedure DoWebViewWindowDestroy(Sender: TObject);
@@ -259,7 +260,7 @@ procedure DoConsoleMessage(webView: wkeWebView; param: Pointer; level: wkeMessag
   wkeString; sourceLine: Cardinal; const stackTrack: wkeString); cdecl;
 begin
   TCustomWkePage(param).DoWebViewConsoleMessage(TCustomWkePage(param), wkeWebView.GetString(AMessage), wkeWebView.GetString
-    (sourceName), sourceLine, wkeWebView.GetString(stackTrack));
+    (sourceName), sourceLine, wkeWebView.GetString(stackTrack), Ord(level));
 end;
 
 procedure DoDocumentReady(webView: wkeWebView; param: Pointer); cdecl;
@@ -343,10 +344,10 @@ begin
 end;
 
 procedure TCustomWkePage.DoWebViewConsoleMessage(Sender: TObject; const AMessage, sourceName: string; sourceLine:
-  Cardinal; const stackTrack: string);
+  Cardinal; const stackTrack: string; const consoleLevel: Integer);
 begin
   if Assigned(FOnConsoleMessage) then
-    FOnConsoleMessage(self, AMessage, sourceName, sourceLine);
+    FOnConsoleMessage(self, AMessage, sourceName, sourceLine, stackTrack, consoleLevel);
 end;
 
 procedure TCustomWkePage.DoWebViewCreateView(Sender: TObject; sUrl: string; navigationType: wkeNavigationType;
