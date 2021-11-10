@@ -9,6 +9,7 @@ uses
 // ================================wkeWebView============================
 var
   UseFastMB: Boolean = False;
+  DontUseWke: Boolean = False;
   wkeLibHandle: THandle = 0;
   wkeLibFileName: string = 'node.dll';
   wkePluginDir: string = '';
@@ -389,7 +390,7 @@ function WkeLoadLibAndInit(mbInitCallback: TProc): Boolean;
 begin
   result := false;
 
-  if not LoadWkeLibaraly() then
+  if (not DontUseWke) and (not LoadWkeLibaraly()) then
     Exit;
 
   //Èç¹ûÊÇfastmb

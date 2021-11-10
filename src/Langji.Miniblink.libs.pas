@@ -351,6 +351,7 @@ begin
     // hook jsFunction
       afxCodeHook.HookCode(@jsFunction, @jsFunctionWrapper, @oldJsFunction);
     end;
+    FillChar(uset, sizeof(uset), 0);
     uset.proxy := mbProxy;
     uset.mask := 0;   //MB_SETTING_PROXY
     uset.blinkThreadInitCallback := nil;

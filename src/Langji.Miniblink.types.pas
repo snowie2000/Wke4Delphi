@@ -303,6 +303,9 @@ type
     mask: Cardinal;
     blinkThreadInitCallback: mbOnBlinkThreadInitCallback;
     blinkThreadInitCallbackParam: Pointer;
+    version: Integer;
+    mainDllPath: PWChar;
+    mainDllHandle: HMODULE;
   end;
 
   PmbSettings = ^TmbSettings;
