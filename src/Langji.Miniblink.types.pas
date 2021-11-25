@@ -8,6 +8,8 @@
 
 unit Langji.Miniblink.types;
 
+{$MINENUMSIZE 4}
+
 interface
 
 uses

@@ -761,8 +761,7 @@ begin
       if DirectoryExists(FLocalStorage) then
         mbSetLocalStorageFullPath(thewebview, PWideChar(FLocalStorage));
 
-      if FpopupEnabled then
-        mbSetNavigationToNewWindowEnable(thewebview, true);
+      mbSetNavigationToNewWindowEnable(thewebview, FpopupEnabled);
 
       //wkeSetDebugConfig(thewebview, 'showDevTools', PAnsiChar(AnsiToUtf8(ExtractFilePath(ParamStr(0)) + '\front_end\inspector.html')));
 //      mbSetDragDropEnable(thewebview, FDragEnabled);
@@ -833,11 +832,11 @@ begin
       wkeSetLocalStorageFullPath(thewebview, PwideChar(FLocalStorage));
 
     wkeSetNavigationToNewWindowEnable(thewebview, FpopupEnabled);
-    wkeSetCspCheckEnable(thewebview, True); // 跨域检查
+//    wkeSetCspCheckEnable(thewebview, True); // 跨域检查
     jsBindFunction('GetSource', DoGetSource, 1);
-    wkeSetDragEnable(thewebview, FDragEnabled);
-    if not FDragEnabled then
-      RevokeDragDrop(GetWebHandle);
+//    wkeSetDragEnable(thewebview, True);
+//    if not FDragEnabled then
+//      RevokeDragDrop(FLastWebHandle);
     if FDPIAware then
       wkeEnableHighDPISupport();
   end;
@@ -1692,30 +1691,27 @@ var
 begin
 // 目前不支持对单个webview设置代理，所以改为class方法
 //  if Assigned(thewebview) then
+  if UseFastMB then
   begin
-    if UseFastMB then
+    FillChar(xproxy, sizeof(xproxy), 0);
+    with xproxy do
     begin
-      with xproxy do
-      begin
-        mtype := TmbProxyType(Value.AType);
-        shost := Value.hostname;
-        StrPCopy(hostname, shost);
-        port := Value.port;
-        shost := Value.username;
-        StrPCopy(username, shost);
-        shost := Value.password;
-        StrPCopy(password, shost);
-      end;
-      if webview = nil then
-        mbSetProxy({thewebview} nil, @xproxy)
-      else
-        mbSetViewProxy(webview, @xproxy);
-    end
+      mtype := TmbProxyType(Value.AType);
+      shost := Value.hostname;
+      StrPCopy(hostname, shost);
+      port := Value.port;
+      shost := Value.username;
+      StrPCopy(username, shost);
+      shost := Value.password;
+      StrPCopy(password, shost);
+    end;
+    if webview <> nil then
+      mbSetViewProxy(webview, @xproxy)
     else
-      wkeSetproxy(@Value);
-     // wkeSetViewProxy(thewebview, @Value);
-  end;
-
+      mbSetProxy(nil, @xproxy);
+  end
+  else
+    wkeSetproxy(@Value);
 end;
 
 procedure TWkeWebBrowser.ShowDevTool;
