@@ -363,7 +363,7 @@ function LoadWkeLibaraly(const wkeLibFilePath: string = ''): Boolean;
 
 procedure UnLoadWkeLibaraly();
 
-function WkeLoadLibAndInit(mbInitCallback: TProc): Boolean;
+function WkeLoadLibAndInit(): Boolean;
 
 procedure WkeFinalizeAndUnloadLib;
 
@@ -386,7 +386,7 @@ asm
    {$ENDIF DEBUG}end;
 {$ENDIF UseVcFastCall}
 
-function WkeLoadLibAndInit(mbInitCallback: TProc): Boolean;
+function WkeLoadLibAndInit(): Boolean;
 begin
   result := false;
 
@@ -396,7 +396,7 @@ begin
   //Èç¹ûÊÇfastmb
   if UseFastMB then
   begin
-    result := mbUserInit(mbInitCallback);
+    result := mbUserInit();
     Exit;
   end
   else

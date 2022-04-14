@@ -143,17 +143,14 @@ var
 
 function LoadmbLibrary(const mbFile: string = ''): Boolean;
 
-function mbUserInit(engineInitCallBack: TProc): boolean;
+function mbUserInit(): boolean;
 
 procedure mbUserUninit;
 
 implementation
 
 uses
-  Math, afxCodeHook, Langji.Wke.lib, Langji.Wke.types;
-
-var
-  engineInit: TProc = nil;
+  Math, Langji.Wke.lib, Langji.Wke.types;
 
 procedure AddPathEnvironment(const Apath: string);
 var
@@ -324,19 +321,7 @@ begin
   AddPathEnvironment(Adir);
 end;
 
-// hooking jsFunction to cut into the script thread
-var
-  oldJsFunction: function(es: jsExecState; obj: PjsData): jsValue; cdecl;
-
-function jsFunctionWrapper(es: jsExecState; obj: PjsData): jsValue; cdecl;
-begin
-  afxCodeHook.UnhookCode(@oldJsFunction);
-  Result := jsFunction(es, obj);
-  if Assigned(engineInit) then
-    engineInit();
-end;
-
-function mbUserInit(engineInitCallBack: TProc): boolean;
+function mbUserInit(): boolean;
 var
   uset: TmbSettings;
 begin
@@ -345,12 +330,6 @@ begin
     exit;
   if LoadmbLibrary() then
   begin
-    if Assigned(engineInitCallBack) then
-    begin
-      engineInit := engineInitCallBack;
-    // hook jsFunction
-      afxCodeHook.HookCode(@jsFunction, @jsFunctionWrapper, @oldJsFunction);
-    end;
     FillChar(uset, sizeof(uset), 0);
     uset.proxy := mbProxy;
     uset.mask := 0;   //MB_SETTING_PROXY

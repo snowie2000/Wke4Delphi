@@ -23,7 +23,7 @@ uses
   System.SysUtils, System.Classes, Vcl.Controls, Vcl.graphics, Vcl.Forms,
   System.Generics.Collections, WinAPI.Messages, Winapi.Windows,
 {$ELSE}
-  SysUtils, Classes, Controls, graphics, Forms, Messages, windows,
+  SysUtils, Classes, Controls, graphics, Forms, Messages, windows, Ole2,
 {$ENDIF}
   Langji.Miniblink.libs, Langji.Miniblink.types, Langji.Wke.types,
   Langji.Wke.IWebBrowser, Langji.Wke.lib, Generics.Collections, superobject;
@@ -303,7 +303,7 @@ type
 implementation
 
 uses
-  dialogs, math, Ole2, RegularExpressions, Variants;
+  dialogs, math, RegularExpressions, Variants;
 
 type
   mbASyncJsCall = record
@@ -704,7 +704,7 @@ begin
   if (csDesigning in ComponentState) then
     exit;
   if not Assigned(FwkeApp) then
-    FIsmain := WkeLoadLibAndInit(nil);
+    FIsmain := WkeLoadLibAndInit();
   CreateWebView;
 end;
 
@@ -721,13 +721,17 @@ begin
       if FLastWebHandle <> 0 then
         FWebviewDict.Add(FLastWebHandle, Self);
       mbShowWindow(thewebview, true);
-      mbSetDebugConfig(thewebview, 'wakeMinInterval', '0');
-      mbSetDebugConfig(thewebview, 'drawMinInterval', '0');
+      mbSetDebugConfig(thewebview, 'wakeMinInterval', '1');
+      mbSetDebugConfig(thewebview, 'drawMinInterval', '1');
       mbSetDebugConfig(thewebview, 'minimumLogicalFontSize', '1');
       mbSetDebugConfig(thewebview, 'minimumFontSize', '1');
+      mbSetResourceGc(thewebview, 85);   // use Chrome's default GC interval
       SetWindowLong(FLastWebHandle, GWL_STYLE, GetWindowLong(mbGetHostHWND(thewebview), GWL_STYLE) or WS_CHILD or WS_TABSTOP or WS_CLIPCHILDREN or WS_CLIPSIBLINGS);
-      FwkeWndProc := Pointer(GetWindowLong(FLastWebHandle, GWL_WNDPROC));
-      SetWindowLong(FLastWebHandle, GWL_WNDPROC, Longint(@WkeWindowProc));
+      if not (csDesigning in ComponentState) then
+      begin
+        FwkeWndProc := Pointer(GetWindowLong(FLastWebHandle, GWL_WNDPROC));
+        SetWindowLong(FLastWebHandle, GWL_WNDPROC, Longint(@WkeWindowProc));
+      end;
       mbResize(thewebview, Width, Height);
 
       mbOnTitleChanged(thewebview, DombTitleChange, Self);
@@ -782,11 +786,15 @@ begin
       FWebviewDict.Add(FLastWebHandle, Self);
     ShowWindow(thewebview.WindowHandle, SW_NORMAL);
     SetWindowLong(thewebview.WindowHandle, GWL_STYLE, GetWindowLong(thewebview.WindowHandle, GWL_STYLE) or WS_CHILD or WS_TABSTOP or WS_CLIPCHILDREN or WS_CLIPSIBLINGS);
-    FwkeWndProc := Pointer(GetWindowLong(FLastWebHandle, GWL_WNDPROC));
-    SetWindowLong(FLastWebHandle, GWL_WNDPROC, Longint(@WkeWindowProc));
+    if not (csDesigning in ComponentState) then
+    begin
+      FwkeWndProc := Pointer(GetWindowLong(FLastWebHandle, GWL_WNDPROC));
+      SetWindowLong(FLastWebHandle, GWL_WNDPROC, Longint(@WkeWindowProc));
+    end;
     wkeSetDebugConfig(thewebview, 'wakeMinInterval', '0');
     wkeSetDebugConfig(thewebview, 'drawMinInterval', '0');
     wkeSetDebugConfig(thewebview, 'minimumLogicalFontSize', '1');
+    //todo: set GC interval
     wkeSetDebugConfig(thewebview, 'minimumFontSize', '1');
     thewebview.SetOnTitleChanged(DoTitleChange, self);
     thewebview.SetOnURLChanged(DoUrlChange, self);
@@ -1282,7 +1290,7 @@ begin
   if Assigned(thewebview) then
   begin
     if UseFastMB then
-      result := mbGetHostHWND(thewebview)
+      result := FLastWebHandle//mbGetHostHWND(thewebview)
     else
       result := thewebview.WindowHandle;
   end;
@@ -1295,7 +1303,7 @@ begin
   if Assigned(thewebview) then
   begin
     if UseFastMB then
-      result := GetDC(mbGetHostHWND(thewebview))
+      result := GetDC(FLastWebHandle)
     else
       result := wkeGetViewDC(thewebview);
   end;
@@ -1555,7 +1563,7 @@ begin
   if Assigned(thewebview) then
   begin
     if UseFastMB then
-      SendMessage(mbGetHostHWND(thewebview), WM_ACTIVATE, 1, 0)
+      SendMessage(FLastWebHandle, WM_ACTIVATE, 1, 0)
     else
     begin
       thewebview.SetFocus;
@@ -1756,7 +1764,7 @@ end;
 
 function TWkeWebBrowser.WkeWndProc(hwnd: THandle; uMsg: Cardinal; wParam: wParam; lParam: lParam): lresult;
 var
-  x, y: Word;
+  x, y: Int16;
   p: TPoint;
 const
   SIZEBOX_BORDER = 5;
@@ -1786,7 +1794,7 @@ begin
   if Assigned(thewebview) then
   begin
     if UseFastMB then
-      MoveWindow(mbGetHostHWND(thewebview), 0, 0, Width, Height, true)
+      MoveWindow(FLastWebHandle, 0, 0, Width, Height, true)
     else
       thewebview.MoveWindow(0, 0, Width, Height);
   end;
@@ -1869,7 +1877,7 @@ begin
   inherited;
   if csDesigning in ComponentState then
     exit;
-  WkeLoadLibAndInit(nil);
+  WkeLoadLibAndInit();
 
 end;
 
